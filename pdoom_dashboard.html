@@ -1,0 +1,897 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>P(Doom) Strategic Overview</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Courier New', monospace;
+            background: #0a0a0a;
+            color: #00ff00;
+            overflow: hidden;
+            height: 100vh;
+            font-size: 11px;
+        }
+
+        .strategic-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr 1fr;
+            grid-template-rows: auto 1fr 1fr 1fr;
+            gap: 8px;
+            padding: 8px;
+            height: 100vh;
+        }
+
+        .header-bar {
+            grid-column: 1 / -1;
+            background: #1a1a1a;
+            padding: 8px 12px;
+            border: 1px solid #333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 40px;
+        }
+
+        .header-title {
+            color: #ff4444;
+            font-weight: bold;
+            font-size: 14px;
+            text-shadow: 0 0 5px #ff4444;
+        }
+
+        .header-status {
+            color: #666;
+            font-size: 10px;
+        }
+
+        .metric-box {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            padding: 8px;
+            position: relative;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .metric-box:hover {
+            border-color: #555;
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.2);
+            z-index: 10;
+        }
+
+        .metric-header {
+            font-size: 9px;
+            color: #888;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+            letter-spacing: 0.5px;
+        }
+
+        .metric-value {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 2px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .metric-trend {
+            font-size: 8px;
+            color: #666;
+        }
+
+        .safety { color: #00ff88; }
+        .danger { color: #ff4444; }
+        .neutral { color: #ffaa00; }
+        .funding { color: #44aaff; }
+
+        .events-panel {
+            background: #0f0f0f;
+            border: 1px solid #333;
+            padding: 6px;
+            overflow-y: auto;
+            font-size: 9px;
+        }
+
+        .event-line {
+            display: flex;
+            margin-bottom: 3px;
+            padding: 2px;
+            border-left: 2px solid #333;
+            padding-left: 4px;
+        }
+
+        .event-line:hover {
+            background: #1a1a1a;
+            border-left-color: #555;
+        }
+
+        .event-date {
+            color: #666;
+            width: 35px;
+            flex-shrink: 0;
+            margin-right: 6px;
+        }
+
+        .event-text {
+            color: #aaa;
+            line-height: 1.2;
+        }
+
+        .event-positive { border-left-color: #00ff88; }
+        .event-negative { border-left-color: #ff4444; }
+        .event-neutral { border-left-color: #ffaa00; }
+
+        .map-section {
+            background: #0f0f0f;
+            border: 1px solid #333;
+            padding: 6px;
+            position: relative;
+        }
+
+        .map-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4px;
+            margin-top: 6px;
+        }
+
+        .region-item {
+            background: #1a1a1a;
+            padding: 4px;
+            border-radius: 2px;
+            text-align: center;
+            font-size: 8px;
+            cursor: pointer;
+        }
+
+        .region-item:hover {
+            background: #222;
+        }
+
+        .governance-compact {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 3px;
+            margin-top: 4px;
+        }
+
+        .gov-item {
+            background: #0f0f0f;
+            padding: 3px;
+            text-align: center;
+            font-size: 8px;
+            border-radius: 1px;
+        }
+
+        .aisi-status {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 2px;
+            margin-top: 4px;
+        }
+
+        .aisi-item {
+            display: flex;
+            align-items: center;
+            font-size: 8px;
+            padding: 2px;
+        }
+
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            margin-right: 4px;
+        }
+
+        .active { background: #00ff88; }
+        .partial { background: #ffaa00; }
+        .inactive { background: #ff4444; }
+
+        .tooltip {
+            position: absolute;
+            background: #222;
+            border: 1px solid #555;
+            padding: 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            color: #ccc;
+            max-width: 200px;
+            z-index: 100;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+            line-height: 1.3;
+        }
+
+        .metric-box:hover .tooltip {
+            opacity: 1;
+        }
+
+        .pulse-dot {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #ff4444;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.3; transform: scale(1.2); }
+        }
+
+        .funding-bars {
+            display: flex;
+            gap: 2px;
+            margin-top: 4px;
+            height: 12px;
+        }
+
+        .funding-bar {
+            flex: 1;
+            border-radius: 1px;
+        }
+
+        .bar-safety { background: linear-gradient(to top, #003322 0%, #00ff88 100%); }
+        .bar-danger { background: linear-gradient(to top, #330000 0%, #ff4444 100%); }
+        .bar-infra { background: linear-gradient(to top, #002244 0%, #44aaff 100%); }
+
+        .compact-counter {
+            font-size: 14px;
+        }
+
+        .mini-trend {
+            position: absolute;
+            top: 2px;
+            right: 6px;
+            font-size: 7px;
+            color: #666;
+        }
+
+        /* Placeholder Overlay System */
+        .placeholder-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: repeating-linear-gradient(
+                45deg,
+                rgba(255, 170, 0, 0.1),
+                rgba(255, 170, 0, 0.1) 10px,
+                rgba(255, 170, 0, 0.05) 10px,
+                rgba(255, 170, 0, 0.05) 20px
+            );
+            border: 1px dashed #ffaa00;
+            pointer-events: none;
+            opacity: 0.7;
+        }
+
+        .placeholder-badge {
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            background: #ffaa00;
+            color: #000;
+            font-size: 7px;
+            padding: 1px 3px;
+            border-radius: 2px;
+            font-weight: bold;
+            z-index: 5;
+        }
+
+        .suggest-data-btn {
+            position: absolute;
+            bottom: 2px;
+            right: 2px;
+            background: #ffaa00;
+            color: #000;
+            font-size: 7px;
+            padding: 2px 4px;
+            border: none;
+            border-radius: 2px;
+            cursor: pointer;
+            font-weight: bold;
+            z-index: 5;
+            transition: all 0.2s ease;
+        }
+
+        .suggest-data-btn:hover {
+            background: #ffcc00;
+            transform: scale(1.1);
+        }
+
+        /* Modal System */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: #1a1a1a;
+            border: 2px solid #333;
+            border-radius: 8px;
+            padding: 20px;
+            max-width: 500px;
+            width: 90%;
+            color: #ccc;
+            font-size: 12px;
+        }
+
+        .modal-header {
+            color: #ffaa00;
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .modal-section {
+            margin-bottom: 15px;
+        }
+
+        .modal-label {
+            color: #aaa;
+            font-size: 10px;
+            margin-bottom: 5px;
+            display: block;
+        }
+
+        .modal-input, .modal-textarea, .modal-select {
+            width: 100%;
+            background: #0f0f0f;
+            border: 1px solid #333;
+            color: #ccc;
+            padding: 6px;
+            font-size: 11px;
+            font-family: 'Courier New', monospace;
+            border-radius: 3px;
+        }
+
+        .modal-textarea {
+            height: 60px;
+            resize: vertical;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        .modal-btn {
+            background: #333;
+            border: 1px solid #555;
+            color: #ccc;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 11px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .modal-btn.primary {
+            background: #ffaa00;
+            color: #000;
+            border-color: #ffaa00;
+        }
+
+        .modal-btn:hover {
+            background: #444;
+        }
+
+        .modal-btn.primary:hover {
+            background: #ffcc00;
+        }
+
+        .config-note {
+            color: #666;
+            font-size: 9px;
+            font-style: italic;
+            margin-top: 10px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="strategic-grid">
+        <!-- Header -->
+        <div class="header-bar">
+            <div class="header-title">P(DOOM) STRATEGIC OVERVIEW</div>
+            <div class="header-status">LIVE | <span id="timestamp">16:42:33 AEDT</span> | STATUS: MONITORING</div>
+        </div>
+
+    <!-- Data Suggestion Modal -->
+    <div class="modal-overlay" id="suggestion-modal">
+        <div class="modal-content">
+            <div class="modal-header">Suggest Data Source</div>
+            
+            <div class="modal-section">
+                <label class="modal-label">Metric: <span id="modal-metric-name"></span></label>
+                <p style="color: #666; font-size: 10px; margin-bottom: 15px;">Help improve the P(Doom) dashboard by suggesting a reliable data source for this metric.</p>
+            </div>
+
+            <div class="modal-section">
+                <label class="modal-label">Data Source URL</label>
+                <input type="url" class="modal-input" id="source-url" placeholder="https://example.com/data-source">
+            </div>
+
+            <div class="modal-section">
+                <label class="modal-label">Source Description</label>
+                <textarea class="modal-textarea" id="source-description" placeholder="Brief description of the data source, methodology, update frequency..."></textarea>
+            </div>
+
+            <div class="modal-section">
+                <label class="modal-label">Source Type</label>
+                <select class="modal-select" id="source-type">
+                    <option value="academic">Academic Research</option>
+                    <option value="government">Government Data</option>
+                    <option value="industry">Industry Report</option>
+                    <option value="nonprofit">Nonprofit/NGO</option>
+                    <option value="news">News/Journalism</option>
+                    <option value="other">Other</option>
+                </select>
+            </div>
+
+            <div class="modal-section">
+                <label class="modal-label">Additional Notes (Optional)</label>
+                <textarea class="modal-textarea" id="additional-notes" placeholder="Any caveats, limitations, or additional context about this source..."></textarea>
+            </div>
+
+            <div class="modal-section">
+                <label class="modal-label">Your Contact (Optional)</label>
+                <input type="text" class="modal-input" id="contact-info" placeholder="Email or GitHub username (for follow-up questions)">
+            </div>
+
+            <div class="config-note">
+                Submissions will be reviewed and integrated if suitable. This helps build a more accurate P(Doom) monitoring system.
+            </div>
+
+            <div class="modal-buttons">
+                <button class="modal-btn" onclick="closeSuggestionModal()">Cancel</button>
+                <button class="modal-btn primary" onclick="submitSuggestion()">Submit Suggestion</button>
+            </div>
+        </div>
+    </div>
+
+        <!-- Human Capital Metrics -->
+        <div class="metric-box" data-metric="safety-researchers">
+            <div class="placeholder-overlay"></div>
+            <div class="placeholder-badge">PLACEHOLDER</div>
+            <button class="suggest-data-btn" onclick="openSuggestionModal('safety-researchers')">SUGGEST DATA</button>
+            <div class="metric-header">Safety Researchers</div>
+            <div class="metric-value safety">847</div>
+            <div class="metric-trend">+23 30d</div>
+            <div class="mini-trend">↗</div>
+            <div class="tooltip">
+                NotKillEveryonist researchers working full-time on AI safety.<br><br>
+                <strong>Breakdown:</strong><br>
+                • Academic: 312<br>
+                • Industry: 289<br>
+                • Independent: 246<br><br>
+                <strong>Growth:</strong> +23 this month, driven by new OpenAI safety hires and university programs.<br><br>
+                <span style="color: #ffaa00;">⚠ This data is currently estimated. Help improve accuracy!</span>
+            </div>
+        </div>
+
+        <div class="metric-box" data-metric="gov-researchers">
+            <div class="placeholder-overlay"></div>
+            <div class="placeholder-badge">PLACEHOLDER</div>
+            <button class="suggest-data-btn" onclick="openSuggestionModal('gov-researchers')">SUGGEST DATA</button>
+            <div class="metric-header">Gov Researchers</div>
+            <div class="metric-value neutral">312</div>
+            <div class="metric-trend">+8 30d</div>
+            <div class="tooltip">
+                AI governance and policy researchers.<br><br>
+                <strong>Top Institutions:</strong><br>
+                • GovAI: 89<br>
+                • CSET: 67<br>
+                • Various Unis: 156<br><br>
+                Recent EU AI Act implementation driving demand.<br><br>
+                <span style="color: #ffaa00;">⚠ This data is currently estimated. Help improve accuracy!</span>
+            </div>
+        </div>
+
+        <div class="metric-box" data-metric="capabilities-researchers">
+            <div class="placeholder-overlay"></div>
+            <div class="placeholder-badge">PLACEHOLDER</div>
+            <button class="suggest-data-btn" onclick="openSuggestionModal('capabilities-researchers')">SUGGEST DATA</button>
+            <div class="pulse-dot"></div>
+            <div class="metric-header">Capabilities Researchers</div>
+            <div class="metric-value danger">15.2K</div>
+            <div class="metric-trend">+892 30d</div>
+            <div class="mini-trend">↗↗</div>
+            <div class="tooltip">
+                Researchers working on advancing AI capabilities.<br><br>
+                <strong>Major Labs:</strong><br>
+                • OpenAI: ~2.1K<br>
+                • Google/DeepMind: ~3.8K<br>
+                • Anthropic: ~890<br>
+                • Meta: ~1.9K<br>
+                • Others: ~6.5K<br><br>
+                <span style="color: #ff6666;">⚠ Accelerating hiring</span><br>
+                <span style="color: #ffaa00;">⚠ This data is currently estimated. Help improve accuracy!</span>
+            </div>
+        </div>
+
+        <!-- Funding Overview -->
+        <div class="metric-box" data-metric="funding-overview">
+            <div class="placeholder-overlay"></div>
+            <div class="placeholder-badge">PLACEHOLDER</div>
+            <button class="suggest-data-btn" onclick="openSuggestionModal('funding-overview')">SUGGEST DATA</button>
+            <div class="metric-header">Funding Overview</div>
+            <div class="funding-bars">
+                <div class="funding-bar bar-safety" title="Safety: $2.8B"></div>
+                <div class="funding-bar bar-danger" title="Capabilities: $127B"></div>
+                <div class="funding-bar bar-infra" title="Infrastructure: $890M"></div>
+            </div>
+            <div class="compact-counter">
+                <span class="safety">$2.8B</span> |
+                <span class="danger">$127B</span> |
+                <span class="funding">$890M</span>
+            </div>
+            <div class="tooltip">
+                Global AI investment breakdown (estimated annual):<br><br>
+                <strong>Safety Research:</strong> $2.8B (+$180M this quarter)<br>
+                <strong>Capabilities:</strong> $127B (+$23B this quarter)<br>
+                <strong>Infrastructure Safety:</strong> $890M (+$45M)<br><br>
+                Safety represents ~2.1% of total AI investment.<br><br>
+                <span style="color: #ffaa00;">⚠ This data is currently estimated. Help improve accuracy!</span>
+            </div>
+        </div>
+
+        <!-- AISI Status -->
+        <div class="metric-box">
+            <div class="metric-header">AI Safety Institutes</div>
+            <div class="aisi-status">
+                <div class="aisi-item">
+                    <div class="status-dot active"></div>
+                    <span>UK/US Active</span>
+                </div>
+                <div class="aisi-item">
+                    <div class="status-dot partial"></div>
+                    <span>EU/CA Planning</span>
+                </div>
+                <div class="aisi-item">
+                    <div class="status-dot inactive"></div>
+                    <span>SG/JP Considering</span>
+                </div>
+            </div>
+            <div class="tooltip">
+                <strong>AI Safety Institute Status:</strong><br><br>
+                <strong>Active:</strong><br>
+                • UK AISI - 127 staff, $45M budget<br>
+                • US AISI - 89 staff, $67M budget<br><br>
+                <strong>Planning:</strong><br>
+                • EU AISI - Expected Q1 2026<br>
+                • Canada - Parliamentary approval pending<br><br>
+                <strong>Considering:</strong><br>
+                • Singapore, Japan in early discussions
+            </div>
+        </div>
+
+        <!-- Governance Scores -->
+        <div class="metric-box" data-metric="governance-scores">
+            <div class="placeholder-overlay"></div>
+            <div class="placeholder-badge">PLACEHOLDER</div>
+            <button class="suggest-data-btn" onclick="openSuggestionModal('governance-scores')">SUGGEST DATA</button>
+            <div class="metric-header">Global Gov Score</div>
+            <div class="metric-value neutral">6.2</div>
+            <div class="governance-compact">
+                <div class="gov-item safety">UK 8.1</div>
+                <div class="gov-item safety">US 7.8</div>
+                <div class="gov-item neutral">EU 6.5</div>
+                <div class="gov-item neutral">CA 6.8</div>
+                <div class="gov-item danger">CN 3.2</div>
+                <div class="gov-item danger">AVG 5.1</div>
+            </div>
+            <div class="tooltip">
+                AI Governance effectiveness scores (1-10 scale):<br><br>
+                <strong>Methodology:</strong><br>
+                • Policy comprehensiveness (30%)<br>
+                • Enforcement capability (25%)<br>
+                • International cooperation (20%)<br>
+                • Technical understanding (15%)<br>
+                • Democratic oversight (10%)<br><br>
+                Global average improving slowly (+0.3 this quarter).<br><br>
+                <span style="color: #ffaa00;">⚠ This data is currently estimated. Help improve accuracy!</span>
+            </div>
+        </div>
+
+        <!-- Rights & Tension -->
+        <div class="metric-box">
+            <div class="metric-header">Rights Protection</div>
+            <div class="metric-value neutral">4.7</div>
+            <div class="metric-trend">+0.3 90d</div>
+            <div class="tooltip">
+                AI Rights Protection Index measuring:<br><br>
+                • Privacy safeguards<br>
+                • Algorithmic transparency<br>
+                • Bias prevention<br>
+                • Human oversight requirements<br>
+                • Appeal mechanisms<br><br>
+                Recent improvements driven by EU AI Act and similar regulations.
+            </div>
+        </div>
+
+        <!-- Regional Map -->
+        <div class="map-section">
+            <div class="metric-header">Regional Safety Investment</div>
+            <div class="map-grid">
+                <div class="region-item safety">NA: High</div>
+                <div class="region-item neutral">EU: Med</div>
+                <div class="region-item danger">APAC: Low</div>
+                <div class="region-item danger">ROW: Min</div>
+            </div>
+            <div class="tooltip">
+                Regional safety investment per capita:<br><br>
+                • North America: $8.7 per capita<br>
+                • Europe: $3.2 per capita<br>
+                • Asia-Pacific: $1.1 per capita<br>
+                • Rest of World: $0.3 per capita
+            </div>
+        </div>
+
+        <!-- Events Feed -->
+        <div class="events-panel">
+            <div class="metric-header">RECENT INTEL</div>
+            <div class="event-line event-positive">
+                <div class="event-date">09/15</div>
+                <div class="event-text">OpenAI $200M safety commitment</div>
+            </div>
+            <div class="event-line event-negative">
+                <div class="event-date">09/14</div>
+                <div class="event-text">3 labs accelerate timelines +500 researchers</div>
+            </div>
+            <div class="event-line event-neutral">
+                <div class="event-date">09/13</div>
+                <div class="event-text">EU AI Act guidelines published</div>
+            </div>
+            <div class="event-line event-positive">
+                <div class="event-date">09/12</div>
+                <div class="event-text">Canada AISI planning committee</div>
+            </div>
+            <div class="event-line event-negative">
+                <div class="event-date">09/11</div>
+                <div class="event-text">Major lab reduces safety team -15%</div>
+            </div>
+            <div class="event-line event-neutral">
+                <div class="event-date">09/10</div>
+                <div class="event-text">UN AI Committee interim report</div>
+            </div>
+            <div class="event-line event-positive">
+                <div class="event-date">09/09</div>
+                <div class="event-text">Stanford safety program +12 researchers</div>
+            </div>
+            <div class="event-line event-negative">
+                <div class="event-date">09/08</div>
+                <div class="event-text">Cloud provider +40% compute capacity</div>
+            </div>
+            <div class="event-line event-negative">
+                <div class="event-date">09/07</div>
+                <div class="event-text">Leaked memo: safety budget cuts planned</div>
+            </div>
+            <div class="event-line event-positive">
+                <div class="event-date">09/06</div>
+                <div class="event-text">UK AISI publishes model evaluation</div>
+            </div>
+            <div class="event-line event-neutral">
+                <div class="event-date">09/05</div>
+                <div class="event-text">G7 AI governance framework draft</div>
+            </div>
+        </div>
+
+        <!-- UN Engagement -->
+        <div class="metric-box">
+            <div class="metric-header">UN Engagement</div>
+            <div class="metric-value neutral">5.8</div>
+            <div class="metric-trend">+0.5 30d</div>
+            <div class="tooltip">
+                UN AI governance engagement score:<br><br>
+                • Active working groups: 7<br>
+                • Member state participation: 127/193<br>
+                • Binding resolutions: 2<br>
+                • Advisory committee meetings: 12<br><br>
+                Recent uptick due to interim recommendations.
+            </div>
+        </div>
+
+        <!-- Tension Indicator -->
+        <div class="metric-box">
+            <div class="pulse-dot"></div>
+            <div class="metric-header">Rights vs Development</div>
+            <div class="metric-value danger">7.3</div>
+            <div class="metric-trend">Rising</div>
+            <div class="mini-trend">⚠</div>
+            <div class="tooltip">
+                Tension between rights protection and AI development:<br><br>
+                <strong>Current Factors:</strong><br>
+                • Regulatory compliance costs rising<br>
+                • Innovation pace pressure<br>
+                • Competitive dynamics intensifying<br>
+                • Public scrutiny increasing<br><br>
+                <span style="color: #ff6666;">High tension levels may lead to regulatory pushback or safety compromises.</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Real-time updates
+        function updateTimestamp() {
+            const now = new Date();
+            document.getElementById('timestamp').textContent = 
+                now.toLocaleTimeString('en-AU', { timeZone: 'Australia/Sydney' }) + ' AEDT';
+        }
+
+        updateTimestamp();
+        setInterval(updateTimestamp, 1000);
+
+        // Add subtle data fluctuations
+        setInterval(() => {
+            document.querySelectorAll('.pulse-dot').forEach(dot => {
+                dot.style.animationDelay = Math.random() * 2 + 's';
+            });
+
+        // Configuration - Set this to control suggestion submission method
+        const SUGGESTION_CONFIG = {
+            method: 'webform', // 'github' or 'webform'
+            githubRepo: 'yourusername/pdoom-data', // Only used if method is 'github'
+            webformEndpoint: '/api/suggestions' // Only used if method is 'webform'
+        };
+
+        // Metric names mapping
+        const METRIC_NAMES = {
+            'safety-researchers': 'Safety Researchers (NotKillEveryonist)',
+            'gov-researchers': 'AI Governance Researchers',
+            'capabilities-researchers': 'AI Capabilities Researchers',
+            'funding-overview': 'Global AI Funding Overview',
+            'governance-scores': 'AI Governance Effectiveness Scores'
+        };
+
+        // Modal functions
+        function openSuggestionModal(metricId) {
+            const modal = document.getElementById('suggestion-modal');
+            const metricName = document.getElementById('modal-metric-name');
+            
+            metricName.textContent = METRIC_NAMES[metricId] || metricId;
+            modal.style.display = 'flex';
+            modal.dataset.metric = metricId;
+            
+            // Clear form
+            document.getElementById('source-url').value = '';
+            document.getElementById('source-description').value = '';
+            document.getElementById('source-type').value = 'academic';
+            document.getElementById('additional-notes').value = '';
+            document.getElementById('contact-info').value = '';
+        }
+
+        function closeSuggestionModal() {
+            document.getElementById('suggestion-modal').style.display = 'none';
+        }
+
+        function submitSuggestion() {
+            const modal = document.getElementById('suggestion-modal');
+            const metricId = modal.dataset.metric;
+            
+            const suggestion = {
+                metric: metricId,
+                metricName: METRIC_NAMES[metricId],
+                sourceUrl: document.getElementById('source-url').value,
+                description: document.getElementById('source-description').value,
+                sourceType: document.getElementById('source-type').value,
+                notes: document.getElementById('additional-notes').value,
+                contact: document.getElementById('contact-info').value,
+                timestamp: new Date().toISOString()
+            };
+
+            if (!suggestion.sourceUrl || !suggestion.description) {
+                alert('Please provide at least a URL and description.');
+                return;
+            }
+
+            if (SUGGESTION_CONFIG.method === 'github') {
+                submitToGitHub(suggestion);
+            } else {
+                submitToWebform(suggestion);
+            }
+        }
+
+        function submitToGitHub(suggestion) {
+            // Create GitHub issue URL with pre-filled data
+            const title = encodeURIComponent(`Data source suggestion: ${suggestion.metricName}`);
+            const body = encodeURIComponent(
+                `**Metric:** ${suggestion.metricName}\n\n` +
+                `**Data Source URL:** ${suggestion.sourceUrl}\n\n` +
+                `**Description:** ${suggestion.description}\n\n` +
+                `**Source Type:** ${suggestion.sourceType}\n\n` +
+                `**Additional Notes:** ${suggestion.notes}\n\n` +
+                `**Contact:** ${suggestion.contact}\n\n` +
+                `---\n*Submitted via P(Doom) Dashboard at ${suggestion.timestamp}*`
+            );
+            
+            const githubUrl = `https://github.com/${SUGGESTION_CONFIG.githubRepo}/issues/new?title=${title}&body=${body}&labels=data-source-suggestion`;
+            window.open(githubUrl, '_blank');
+            
+            closeSuggestionModal();
+            alert('Opening GitHub issue page. Thanks for the suggestion!');
+        }
+
+        function submitToWebform(suggestion) {
+            // For demo purposes, just show the data that would be submitted
+            console.log('Would submit to webform:', suggestion);
+            
+            // In a real implementation, you'd POST to your endpoint:
+            /*
+            fetch(SUGGESTION_CONFIG.webformEndpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(suggestion)
+            }).then(response => {
+                if (response.ok) {
+                    alert('Suggestion submitted successfully! Thanks for contributing.');
+                } else {
+                    alert('Error submitting suggestion. Please try again.');
+                }
+            });
+            */
+            
+            closeSuggestionModal();
+            alert('Suggestion submitted! (Demo mode - check console for data)\nThanks for helping improve the dashboard!');
+        }
+
+        // Close modal when clicking outside
+        document.getElementById('suggestion-modal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeSuggestionModal();
+            }
+        });
+    </script>
+        }, 5000);
+
+        // Enhanced hover interactions
+        document.querySelectorAll('.metric-box').forEach(box => {
+            box.addEventListener('mouseenter', function() {
+                this.style.transform = 'scale(1.02)';
+                this.style.zIndex = '20';
+            });
+            
+            box.addEventListener('mouseleave', function() {
+                this.style.transform = 'scale(1)';
+                this.style.zIndex = '1';
+            });
+        });
+
+        // Event line highlighting
+        document.querySelectorAll('.event-line').forEach(line => {
+            line.addEventListener('mouseenter', function() {
+                this.style.backgroundColor = '#1a1a1a';
+            });
+            
+            line.addEventListener('mouseleave', function() {
+                this.style.backgroundColor = 'transparent';
+            });
+        });
+    </script>
+</body>
+</html>
