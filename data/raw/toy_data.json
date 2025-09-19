@@ -1,0 +1,11 @@
+{
+  "metrics": [
+    {"name": "safety_researchers", "value": 847},
+    {"name": "governance_researchers", "value": 312},
+    {"name": "capabilities_researchers", "value": 15247},
+    {"name": "funding_overview", "value": 1000000},
+    {"name": "aisi_status", "value": 3},
+    {"name": "governance_scores", "value": 75}
+  ],
+  "source": "toy"
+}

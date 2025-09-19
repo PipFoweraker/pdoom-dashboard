@@ -1,0 +1,12 @@
+dashboard:
+  data_sources:
+    local_data: ./data
+    pdoom_data_repo: https://raw.githubusercontent.com/PipFoweraker/pdoom-data/main
+  github_repo: PipFoweraker/pdoom-data
+  subtitle: Real-time AI Safety & Governance Monitoring
+  title: P(Doom) Global Dashboard
+  update_frequency: 30s
+suggestion_system:
+  github_repo: PipFoweraker/pdoom-dashboard
+  method: github
+  webform_endpoint: /api/suggestions

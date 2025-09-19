@@ -1,0 +1,16 @@
+# Data sources configuration stub
+# Add new sources here as needed
+
+toy:
+  enabled: true
+  description: "Toy data for development and testing."
+
+local:
+  enabled: false
+  path: "path/to/local/data.json"
+  description: "Local data file."
+
+remote:
+  enabled: false
+  url: "https://github.com/PipFoweraker/pdoom-data"
+  description: "Remote data source (GitHub, API, etc.)"

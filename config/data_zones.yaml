@@ -1,0 +1,22 @@
+# Data Zones Configuration
+# Define paths and settings for each data lake zone
+
+raw:
+  path: "data/raw/"
+  description: "Unprocessed, original data."
+
+curated:
+  path: "data/curated/"
+  description: "Cleaned and validated data."
+
+transformed:
+  path: "data/transformed/"
+  description: "Aggregated and enriched data."
+
+metadata:
+  path: "data/metadata/"
+  description: "Data lineage, schema, and quality metrics."
+
+servable:
+  path: "data/servable/"
+  description: "Production-ready, high-quality data for dashboard."

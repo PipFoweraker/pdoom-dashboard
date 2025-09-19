@@ -1,0 +1,53 @@
+{
+  "build_time": "2025-09-18T13:52:21.014252",
+  "metrics": [
+    {
+      "id": "safety_researchers",
+      "title": "Safety Researchers",
+      "data_source": "pdoom_data:safety_researchers.json",
+      "placeholder": true,
+      "last_updated": "2025-09-18T13:52:20.149354",
+      "confidence": "low"
+    },
+    {
+      "id": "governance_researchers",
+      "title": "Gov Researchers",
+      "data_source": "pdoom_data:governance_researchers.json",
+      "placeholder": true,
+      "last_updated": "2025-09-18T13:52:20.150361",
+      "confidence": "medium"
+    },
+    {
+      "id": "capabilities_researchers",
+      "title": "Capabilities Researchers",
+      "data_source": "pdoom_data:capabilities_researchers.json",
+      "placeholder": true,
+      "last_updated": "2025-09-18T13:52:20.150361",
+      "confidence": "low"
+    },
+    {
+      "id": "funding_overview",
+      "title": "Funding Overview",
+      "data_source": "pdoom_data:funding_overview.json",
+      "placeholder": true,
+      "last_updated": "2025-09-18T13:52:20.150361",
+      "confidence": "unknown"
+    },
+    {
+      "id": "aisi_status",
+      "title": "AI Safety Institutes",
+      "data_source": "pdoom_data:aisi_status.json",
+      "placeholder": false,
+      "last_updated": "2025-09-18T13:52:20.978403",
+      "confidence": "unknown"
+    },
+    {
+      "id": "governance_scores",
+      "title": "Global Gov Score",
+      "data_source": "pdoom_data:governance_scores.json",
+      "placeholder": true,
+      "last_updated": "2025-09-18T13:52:20.978403",
+      "confidence": "unknown"
+    }
+  ]
+}

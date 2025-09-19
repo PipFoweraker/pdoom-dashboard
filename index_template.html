@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>P(Doom) Global Dashboard</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f4f4;
+            margin: 0;
+            padding: 0;
+        }
+        .strategic-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            padding: 40px;
+        }
+        .header-bar {
+            grid-column: 1 / -1;
+            background: #222;
+            color: #fff;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .header-title {
+            font-size: 2em;
+            font-weight: bold;
+        }
+        .header-status {
+            font-size: 1em;
+            font-weight: normal;
+        }
+        .metric-box {
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            padding: 24px;
+            position: relative;
+            min-height: 160px;
+        }
+        .metric-header {
+            font-size: 1.2em;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .metric-value {
+            font-size: 2em;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+        .metric-trend {
+            font-size: 1em;
+            color: #888;
+        }
+        .placeholder-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(200,200,200,0.2);
+            border-radius: 8px;
+            z-index: 1;
+        }
+        .placeholder-badge {
+            position: absolute;
+            top: 12px; right: 12px;
+            background: #ff9800;
+            color: #fff;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.9em;
+            z-index: 2;
+        }
+        .suggest-data-btn {
+            position: absolute;
+            bottom: 12px; right: 12px;
+            z-index: 2;
+            background: #2196f3;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            padding: 6px 12px;
+            cursor: pointer;
+        }
+        .safety { color: #4caf50; }
+        .neutral { color: #2196f3; }
+        .danger { color: #f44336; }
+        .funding { color: #9c27b0; }
+    </style>
+</head>
+<body>
+    <div class="strategic-grid">
+        <div class="header-bar">
+            <div class="header-title">P(Doom) Global Dashboard</div>
+            <div class="header-status">LIVE | 13:52:21 AEDT | STATUS: MONITORING</div>
+        </div>
+        
+        
+        <div class="metric-box" data-metric="safety_researchers">
+            
+            <div class="placeholder-overlay"></div>
+            <div class="placeholder-badge">PLACEHOLDER</div>
+            <button class="suggest-data-btn" onclick="openSuggestionModal('safety_researchers')">SUGGEST DATA</button>
+            
+            
+            <div class="metric-header">Safety Researchers</div>
+            <div class="metric-value safety">847</div>
+            <div class="metric-trend">+23 30d</div>
+        </div>
+        
+        <div class="metric-box" data-metric="governance_researchers">
+            
+            <div class="placeholder-overlay"></div>
+            <div class="placeholder-badge">PLACEHOLDER</div>
+            <button class="suggest-data-btn" onclick="openSuggestionModal('governance_researchers')">SUGGEST DATA</button>
+            
+            
+            <div class="metric-header">Gov Researchers</div>
+            <div class="metric-value neutral">312</div>
+            <div class="metric-trend">+8 30d</div>
+        </div>
+        
+        <div class="metric-box" data-metric="capabilities_researchers">
+            
+            <div class="placeholder-overlay"></div>
+            <div class="placeholder-badge">PLACEHOLDER</div>
+            <button class="suggest-data-btn" onclick="openSuggestionModal('capabilities_researchers')">SUGGEST DATA</button>
+            
+            
+            <div class="metric-header">Capabilities Researchers</div>
+            <div class="metric-value danger">15247</div>
+            <div class="metric-trend">+892 30d</div>
+        </div>
+        
+        <div class="metric-box" data-metric="funding_overview">
+            
+            <div class="placeholder-overlay"></div>
+            <div class="placeholder-badge">PLACEHOLDER</div>
+            <button class="suggest-data-btn" onclick="openSuggestionModal('funding_overview')">SUGGEST DATA</button>
+            
+            
+            <div class="metric-header">Funding Overview</div>
+            <div class="metric-value funding">0</div>
+            <div class="metric-trend">�0 30d</div>
+        </div>
+        
+        <div class="metric-box" data-metric="aisi_status">
+            
+            
+            <div class="metric-header">AI Safety Institutes</div>
+            <div class="metric-value neutral">0</div>
+            <div class="metric-trend">�0 30d</div>
+        </div>
+        
+        <div class="metric-box" data-metric="governance_scores">
+            
+            <div class="placeholder-overlay"></div>
+            <div class="placeholder-badge">PLACEHOLDER</div>
+            <button class="suggest-data-btn" onclick="openSuggestionModal('governance_scores')">SUGGEST DATA</button>
+            
+            
+            <div class="metric-header">Global Gov Score</div>
+            <div class="metric-value neutral">0</div>
+            <div class="metric-trend">�0 30d</div>
+        </div>
+        
+    </div>
+    
+    <script>
+        async function loadMetrics() {
+            try {
+                const response = await fetch('/api/data');
+                const data = await response.json();
+                if (data.metrics) {
+                    data.metrics.forEach(metric => {
+                        // Find metric box by name
+                        const box = document.querySelector(`.metric-box[data-metric="${metric.name.replace(/\s+/g, '_').toLowerCase()}"]`);
+                        if (box) {
+                            // Update value
+                            const valueElem = box.querySelector('.metric-value');
+                            if (valueElem) valueElem.textContent = metric.value;
+                            // Remove placeholder
+                            const overlay = box.querySelector('.placeholder-overlay');
+                            const badge = box.querySelector('.placeholder-badge');
+                            if (overlay) overlay.style.display = 'none';
+                            if (badge) badge.style.display = 'none';
+                        }
+                    });
+                }
+            } catch (err) {
+                console.error('Error loading metrics:', err);
+            }
+        }
+        window.onload = loadMetrics;
+    </script>
+</body>
+</html>

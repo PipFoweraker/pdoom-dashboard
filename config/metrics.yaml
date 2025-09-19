@@ -1,0 +1,66 @@
+- color_scheme: safety
+  data_source: pdoom_data:safety_researchers.json
+  description: NotKillEveryonist researchers working full-time on AI safety
+  format: integer
+  grid_position:
+    col: 1
+    row: 2
+  id: safety_researchers
+  placeholder: true
+  title: Safety Researchers
+  trend_period: 30d
+- color_scheme: neutral
+  data_source: pdoom_data:governance_researchers.json
+  description: AI governance and policy researchers
+  format: integer
+  grid_position:
+    col: 2
+    row: 2
+  id: governance_researchers
+  placeholder: true
+  title: Gov Researchers
+  trend_period: 30d
+- alerts:
+  - high_growth
+  color_scheme: danger
+  data_source: pdoom_data:capabilities_researchers.json
+  description: Researchers working on advancing AI capabilities
+  format: integer_k
+  grid_position:
+    col: 3
+    row: 2
+  id: capabilities_researchers
+  placeholder: true
+  title: Capabilities Researchers
+  trend_period: 30d
+- color_scheme: funding
+  data_source: pdoom_data:funding_overview.json
+  description: Global AI investment breakdown
+  format: funding_bars
+  grid_position:
+    col: 4
+    row: 2
+  id: funding_overview
+  placeholder: true
+  title: Funding Overview
+  trend_period: 90d
+- color_scheme: neutral
+  data_source: pdoom_data:aisi_status.json
+  description: Status of AI Safety Institutes globally
+  format: status_list
+  grid_position:
+    col: 1
+    row: 3
+  id: aisi_status
+  placeholder: false
+  title: AI Safety Institutes
+- color_scheme: neutral
+  data_source: pdoom_data:governance_scores.json
+  description: AI Governance effectiveness scores
+  format: score_grid
+  grid_position:
+    col: 2
+    row: 3
+  id: governance_scores
+  placeholder: true
+  title: Global Gov Score

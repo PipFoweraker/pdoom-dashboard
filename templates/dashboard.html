@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ config.dashboard.title }}</title>
+    <style>
+        /* CSS would go here - similar to your current dashboard */
+    </style>
+</head>
+<body>
+    <div class="strategic-grid">
+        <div class="header-bar">
+            <div class="header-title">{{ config.dashboard.title }}</div>
+            <div class="header-status">LIVE | {{ timestamp }} | STATUS: MONITORING</div>
+        </div>
+        
+        {% for metric in metrics %}
+        <div class="metric-box" data-metric="{{ metric.id }}">
+            {% if metric.placeholder %}
+            <div class="placeholder-overlay"></div>
+            <div class="placeholder-badge">PLACEHOLDER</div>
+            <button class="suggest-data-btn" onclick="openSuggestionModal('{{ metric.id }}')">SUGGEST DATA</button>
+            {% endif %}
+            
+            <div class="metric-header">{{ metric.title }}</div>
+            <div class="metric-value {{ metric.color_scheme }}">{{ metric.data.current_value }}</div>
+            <div class="metric-trend">{{ metric.data.trend }} {{ metric.data.trend_period }}</div>
+        </div>
+        {% endfor %}
+    </div>
+    
+    <script>
+        // JavaScript would go here
+    </script>
+</body>
+</html>

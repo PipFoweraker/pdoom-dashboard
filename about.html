@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>About P(Doom) Dashboard</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #f4f4f4; margin: 0; padding: 0; }
+        .container { max-width: 800px; margin: 40px auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); padding: 32px; }
+        h1 { font-size: 2em; margin-bottom: 16px; }
+        h2 { font-size: 1.3em; margin-top: 32px; }
+        p, li { font-size: 1em; line-height: 1.6; }
+        ul { margin-left: 20px; }
+        code { background: #eee; padding: 2px 6px; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>About P(Doom) Global Dashboard</h1>
+        <p>
+            The P(Doom) Dashboard is an open-source project to track, visualize, and share key metrics related to global AI safety, governance, and capabilities. It is designed to be transparent, extensible, and community-driven.
+        </p>
+        <h2>How It Works</h2>
+        <ul>
+            <li>Data is collected from public sources, research, and community submissions.</li>
+            <li>Metrics are processed through a modular data pipeline for quality and consistency.</li>
+            <li>The dashboard displays live and historical data for public review.</li>
+        </ul>
+        <h2>Contributing Data</h2>
+        <p>
+            Anyone can contribute new data or suggest updates. Please prepare your data in the following format:
+        </p>
+        <pre><code>{
+  "metrics": [
+    {"name": "safety_researchers", "value": 847},
+    {"name": "governance_researchers", "value": 312}
+    // ... more metrics ...
+  ],
+  "source": "your_source_name"
+}</code></pre>
+        <p>
+            Submit your data via a pull request to the <code>pdoom-data</code> repository, or use the dashboard's suggestion form (coming soon).
+        </p>
+        <h2>Get Involved</h2>
+        <ul>
+            <li>Review the <a href="docs/data_format_and_pipeline.md">data format and pipeline documentation</a>.</li>
+            <li>Open issues or feature requests on GitHub.</li>
+            <li>Contact the maintainers for collaboration.</li>
+        </ul>
+        <h2>Project Links</h2>
+        <ul>
+            <li><a href="https://github.com/PipFoweraker/pdoom-dashboard">Dashboard Repository</a></li>
+            <li><a href="https://github.com/PipFoweraker/pdoom-data">Data Repository</a></li>
+        </ul>
+    </div>
+</body>
+</html>

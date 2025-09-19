@@ -1,9 +1,3 @@
-# requirements.txt
-jinja2>=3.1.0
-pyyaml>=6.0
-requests>=2.28.0
-
-# setup.py - Quick setup script
 #!/usr/bin/env python3
 """
 Quick setup script for P(Doom) Dashboard
