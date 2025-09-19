@@ -25,11 +25,36 @@ def transform_data(data):
     return data
 
 def serve_data():
-    """Full pipeline: ingest, validate, transform, and return data."""
-    source_path = os.path.join('data', 'raw', 'toy_data.json')
-    data = ingest_data(source_path)
-    valid, msg = validate_data(data)
-    if not valid:
-        return {'error': msg}
-    data = transform_data(data)
-    return data
+    """Serve data from the servable zone (production-ready data)."""
+    servable_dir = os.path.join('data', 'servable')
+    
+    # Look for all JSON files in servable zone
+    all_metrics = []
+    
+    if os.path.exists(servable_dir):
+        for root, dirs, files in os.walk(servable_dir):
+            for file in files:
+                if file.endswith('.json'):
+                    file_path = os.path.join(root, file)
+                    try:
+                        with open(file_path, 'r') as f:
+                            data = json.load(f)
+                            if 'metrics' in data:
+                                all_metrics.extend(data['metrics'])
+                    except Exception as e:
+                        print(f"Warning: Could not load {file_path}: {e}")
+    
+    # If no servable data exists, fall back to toy data for demo
+    if not all_metrics:
+        print("No servable data found, using toy data")
+        toy_path = os.path.join('data', 'raw', 'toy_data.json')
+        if os.path.exists(toy_path):
+            with open(toy_path, 'r') as f:
+                toy_data = json.load(f)
+                all_metrics = toy_data.get('metrics', [])
+    
+    return {
+        'metrics': all_metrics,
+        'source': 'servable_zone',
+        'count': len(all_metrics)
+    }

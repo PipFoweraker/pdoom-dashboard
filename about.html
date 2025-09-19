@@ -22,13 +22,20 @@
         </p>
         <h2>How It Works</h2>
         <ul>
-            <li>Data is collected from public sources, research, and community submissions.</li>
+            <li>Data is automatically synced daily from the <code>pdoom-data</code> repository.</li>
+            <li>Configurable filters control what data gets included.</li>
             <li>Metrics are processed through a modular data pipeline for quality and consistency.</li>
             <li>The dashboard displays live and historical data for public review.</li>
         </ul>
+        <h2>Automated Data Sync</h2>
+        <p>
+            The dashboard automatically pulls data from the <code>pdoom-data</code> repository every day at 6:00 AM UTC. 
+            You can configure what data gets synced by editing <code>config/data_sync.yaml</code>.
+        </p>
         <h2>Contributing Data</h2>
         <p>
-            Anyone can contribute new data or suggest updates. Please prepare your data in the following format:
+            Anyone can contribute new data by adding files to the <code>pdoom-data</code> repository. 
+            Please prepare your data in the following format:
         </p>
         <pre><code>{
   "metrics": [
@@ -39,11 +46,15 @@
   "source": "your_source_name"
 }</code></pre>
         <p>
-            Submit your data via a pull request to the <code>pdoom-data</code> repository, or use the dashboard's suggestion form (coming soon).
+            Submit your data via a pull request to the <code>pdoom-data</code> repository. 
+            Data will be automatically synced to the dashboard within 24 hours.
         </p>
         <h2>Get Involved</h2>
         <ul>
             <li>Review the <a href="docs/data_format_and_pipeline.md">data format and pipeline documentation</a>.</li>
+            <li>Check the <a href="docs/github_actions_automation.md">automation and sync documentation</a>.</li>
+            <li>Read the <a href="docs/pipeline_management.md">pipeline management guide</a>.</li>
+            <li>See the <a href="docs/development_guide.md">development and extension guide</a>.</li>
             <li>Open issues or feature requests on GitHub.</li>
             <li>Contact the maintainers for collaboration.</li>
         </ul>

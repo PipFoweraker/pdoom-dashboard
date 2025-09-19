@@ -1,0 +1,244 @@
+name: Daily Data Refresh from pdoom-data
+
+on:
+  schedule:
+    # Run at 6:00 AM UTC every day
+    - cron: '0 6 * * *'
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  refresh-data:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout dashboard repository
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install requests PyYAML
+        
+    - name: Clone pdoom-data repository
+      run: |
+        echo "=== CLONING PDOOM-DATA REPOSITORY ==="
+        echo "Timestamp: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+        git clone https://github.com/PipFoweraker/pdoom-data.git temp-pdoom-data
+        echo "Clone completed successfully"
+        ls -la temp-pdoom-data/
+        
+    - name: Process and update data
+      run: |
+        echo "=== PROCESSING DATA FROM PDOOM-DATA ==="
+        echo "Timestamp: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+        
+        # Create a simple Python script to process the data
+        cat > process_data.py << 'EOF'
+        import os
+        import json
+        import shutil
+        import yaml
+        import fnmatch
+        from datetime import datetime
+        
+        def load_sync_config():
+            """Load data sync configuration"""
+            config_path = "config/data_sync.yaml"
+            if os.path.exists(config_path):
+                with open(config_path, 'r') as f:
+                    return yaml.safe_load(f)
+            return {
+                "sync_mode": "all",
+                "include_paths": [],
+                "exclude_patterns": [],
+                "allowed_file_types": [".json"],
+                "max_file_size": 10
+            }
+        
+        def should_include_path(path, config):
+            """Check if a path should be included based on config"""
+            if config["sync_mode"] == "all":
+                return True
+                
+            # Check if path matches any included paths
+            for include_path in config.get("include_paths", []):
+                if path.startswith(include_path) or include_path in path:
+                    return True
+            return False
+        
+        def should_exclude_file(filename, config):
+            """Check if a file should be excluded based on patterns"""
+            for pattern in config.get("exclude_patterns", []):
+                if fnmatch.fnmatch(filename, pattern):
+                    return True
+            return False
+        
+        def is_allowed_file_type(filename, config):
+            """Check if file type is allowed"""
+            allowed_types = config.get("allowed_file_types", [".json"])
+            return any(filename.endswith(ext) for ext in allowed_types)
+        
+        def process_pdoom_data():
+            print(f"=== DATA PROCESSING STARTED AT {datetime.utcnow().isoformat()} UTC ===")
+            
+            # Load configuration
+            config = load_sync_config()
+            print(f"Sync mode: {config['sync_mode']}")
+            if config["sync_mode"] == "selective":
+                print(f"Include paths: {config.get('include_paths', [])}")
+                print(f"Exclude patterns: {config.get('exclude_patterns', [])}")
+            
+            # Check if pdoom-data exists and has data files
+            source_dir = "temp-pdoom-data"
+            if not os.path.exists(source_dir):
+                print("ERROR: pdoom-data directory not found")
+                return False
+                
+            # Look for files in pdoom-data with filtering
+            data_files = []
+            skipped_files = []
+            
+            for root, dirs, files in os.walk(source_dir):
+                rel_root = os.path.relpath(root, source_dir)
+                
+                # Skip if path not included
+                if not should_include_path(rel_root, config):
+                    print(f"Skipping path: {rel_root} (not in include list)")
+                    continue
+                    
+                for file in files:
+                    full_path = os.path.join(root, file)
+                    rel_path = os.path.relpath(full_path, source_dir)
+                    
+                    # Check file type
+                    if not is_allowed_file_type(file, config):
+                        skipped_files.append((rel_path, "file type not allowed"))
+                        continue
+                        
+                    # Check exclude patterns
+                    if should_exclude_file(file, config):
+                        skipped_files.append((rel_path, "matches exclude pattern"))
+                        continue
+                        
+                    # Check file size
+                    try:
+                        file_size_mb = os.path.getsize(full_path) / (1024 * 1024)
+                        max_size = config.get("max_file_size", 10)
+                        if file_size_mb > max_size:
+                            skipped_files.append((rel_path, f"too large ({file_size_mb:.1f}MB > {max_size}MB)"))
+                            continue
+                    except OSError:
+                        skipped_files.append((rel_path, "could not check file size"))
+                        continue
+                    
+                    data_files.append(full_path)
+                        
+            print(f"Found {len(data_files)} files to process:")
+            for file in data_files:
+                rel_path = os.path.relpath(file, source_dir)
+                print(f"  ✓ {rel_path}")
+                
+            if skipped_files:
+                print(f"Skipped {len(skipped_files)} files:")
+                for file, reason in skipped_files:
+                    print(f"  ✗ {file} ({reason})")
+                
+            # Copy data files to our raw zone
+            os.makedirs("data/raw", exist_ok=True)
+            
+            processed_files = []
+            for source_file in data_files:
+                rel_path = os.path.relpath(source_file, source_dir)
+                # Create subdirectories in raw zone to preserve structure
+                dest_path = os.path.join("data/raw", rel_path)
+                dest_dir = os.path.dirname(dest_path)
+                os.makedirs(dest_dir, exist_ok=True)
+                
+                shutil.copy2(source_file, dest_path)
+                print(f"Copied {rel_path} -> {dest_path}")
+                processed_files.append(rel_path)
+                
+            # Create a refresh log entry
+            log_entry = {
+                "timestamp": datetime.utcnow().isoformat() + "Z",
+                "sync_mode": config["sync_mode"],
+                "files_processed": len(data_files),
+                "files_skipped": len(skipped_files),
+                "files": processed_files,
+                "skipped_files": [{"file": f, "reason": r} for f, r in skipped_files],
+                "config_used": config,
+                "status": "success"
+            }
+            
+            # Append to refresh log
+            log_file = "data/refresh_log.json"
+            if os.path.exists(log_file):
+                with open(log_file, 'r') as f:
+                    log_data = json.load(f)
+            else:
+                log_data = {"refreshes": []}
+                
+            log_data["refreshes"].append(log_entry)
+            
+            # Keep only last 100 entries
+            log_data["refreshes"] = log_data["refreshes"][-100:]
+            
+            with open(log_file, 'w') as f:
+                json.dump(log_data, f, indent=2)
+                
+            print(f"=== DATA PROCESSING COMPLETED SUCCESSFULLY ===")
+            print(f"Log entry added to {log_file}")
+            return True
+            
+        if __name__ == "__main__":
+            success = process_pdoom_data()
+            exit(0 if success else 1)
+        EOF
+        
+        python process_data.py
+        
+    - name: Commit and push changes
+      run: |
+        echo "=== COMMITTING CHANGES ==="
+        echo "Timestamp: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+        
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action - Daily Data Refresh"
+        
+        git add data/
+        
+        # Check if there are changes to commit
+        if git diff --staged --quiet; then
+          echo "No changes detected in data files"
+        else
+          echo "Changes detected, committing..."
+          git commit -m "Automated data refresh from pdoom-data - $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          git push
+          echo "Changes pushed successfully"
+        fi
+        
+    - name: Cleanup
+      run: |
+        echo "=== CLEANUP ==="
+        rm -rf temp-pdoom-data
+        rm -f process_data.py
+        echo "Cleanup completed"
+        
+    - name: Summary
+      run: |
+        echo "=== DAILY DATA REFRESH SUMMARY ==="
+        echo "Completion time: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+        echo "Workflow completed successfully"
+        
+        # Display the latest log entry
+        if [ -f "data/refresh_log.json" ]; then
+          echo "Latest refresh log entry:"
+          python -c "import json; f=open('data/refresh_log.json','r'); data=json.load(f); f.close(); latest=data['refreshes'][-1] if data['refreshes'] else None; print(f'  Timestamp: {latest[\"timestamp\"]}') if latest else None; print(f'  Files processed: {latest[\"files_processed\"]}') if latest else None; print(f'  Status: {latest[\"status\"]}') if latest else None"
+        fi

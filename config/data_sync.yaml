@@ -1,0 +1,34 @@
+# Data Sync Configuration
+# Controls what data is pulled from pdoom-data repository
+
+# Sync settings
+sync_enabled: true
+sync_mode: "selective"  # "all" or "selective"
+
+# Selective sync - only pull these folders/files
+include_paths:
+  - "safety_metrics/"
+  - "governance_data/"
+  - "funding_data/"
+  # - "capabilities_metrics/"  # commented out = excluded
+  
+# Exclude specific files (even if in included folders)
+exclude_patterns:
+  - "*.tmp"
+  - "*.bak"
+  - "*_draft.json"
+  - "test_*"
+
+# File type filtering
+allowed_file_types:
+  - ".json"
+  - ".csv"
+  - ".yaml"
+  - ".yml"
+
+# Size limits (in MB)
+max_file_size: 10
+
+# Logging
+verbose_logging: true
+keep_log_entries: 100
