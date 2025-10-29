@@ -154,7 +154,7 @@ concurrency:
 - [ ] Add workflow testing (#2)
 - [ ] Enable security scanning (#3)
 
-### Q1 2026
+### Q1 2025
 - [ ] Update Python version (#4)
 - [ ] Add dependency caching (#5)
 - [ ] Implement error handling and notifications (#6)
