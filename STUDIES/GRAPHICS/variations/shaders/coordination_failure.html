@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Coordination Failure Shader</title>
+<style>
+  * {margin:0;padding:0;}
+  body {background:#000;overflow:hidden;}
+  canvas {display:block;width:100vw;height:100vh;}
+  #info {
+    position:absolute;
+    top:20px;
+    left:20px;
+    color:#ff6b35;
+    font-family:'Courier New',monospace;
+    font-size:20px;
+    text-shadow:0 0 10px #ff6b35,0 0 20px #ff6b35;
+    pointer-events:none;
+  }
+</style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+<div id="info">COORDINATION FAILURE</div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const gl = canvas.getContext('webgl');
+
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  if(gl) gl.viewport(0, 0, canvas.width, canvas.height);
+}
+window.addEventListener('resize', resize);
+resize();
+
+const vs = `attribute vec2 pos; void main() {gl_Position = vec4(pos, 0.0, 1.0);}`;
+const fs = `
+precision highp float;
+uniform vec2 resolution;
+uniform float time;
+
+float hash(vec2 p) {
+  p = fract(p * vec2(123.45, 678.90));
+  p += dot(p, p + 34.56);
+  return fract(p.x * p.y);
+}
+
+// Multiple actors moving independently (countries/labs)
+vec2 actorPosition(float id, float t) {
+  float angle = id * 2.5 + t * (0.3 + id * 0.1);
+  float radius = 0.8 + 0.3 * sin(t * 0.5 + id);
+  return vec2(cos(angle), sin(angle)) * radius;
+}
+
+// Competition/racing pattern
+float competitionField(vec2 p, float t) {
+  float minDist = 10.0;
+
+  // Multiple competing actors
+  for(float i = 0.0; i < 6.0; i++) {
+    vec2 actor = actorPosition(i, t);
+    float dist = length(p - actor);
+    minDist = min(minDist, dist);
+  }
+
+  return smoothstep(0.4, 0.2, minDist);
+}
+
+// Fragmented territories - everyone pursuing own goals
+float territoryFragmentation(vec2 p, float t) {
+  vec2 cell = floor(p * 4.0);
+  float cellId = hash(cell);
+
+  // Each territory has its own direction/priority
+  float territoryPattern = sin(cellId * 10.0 + t * (cellId * 2.0));
+
+  vec2 localP = fract(p * 4.0) - 0.5;
+  float boundary = max(abs(localP.x), abs(localP.y));
+
+  return smoothstep(0.5, 0.45, boundary) * (0.5 + 0.5 * territoryPattern);
+}
+
+// Failed cooperation attempts
+float failedSync(vec2 p, float t) {
+  // Multiple phases that should synchronize but drift apart
+  float sync = 0.0;
+
+  for(float i = 0.0; i < 5.0; i++) {
+    float phase = t * (1.0 + i * 0.15);  // Slight drift causes desync
+    float wave = sin(length(p) * 3.0 - phase);
+    sync += wave * (1.0 / (i + 1.0));
+  }
+
+  return abs(sync) * 0.2;
+}
+
+// Prisoner's dilemma visualization - defection cascades
+float prisonerDilemma(vec2 p, float t) {
+  vec2 grid = floor(p * 6.0);
+  float cellId = hash(grid);
+
+  // Cells defect based on neighbors defecting
+  float defectionProbability = 0.3 + 0.4 * sin(t * 0.5 + cellId * 10.0);
+
+  return defectionProbability;
+}
+
+void main() {
+  vec2 uv = gl_FragCoord.xy / resolution;
+  vec2 p = (uv - 0.5) * 3.0;
+  p.x *= resolution.x / resolution.y;
+
+  float t = time * 0.5;
+
+  // Combine coordination failure patterns
+  float competition = competitionField(p, t);
+  float fragmentation = territoryFragmentation(p, t);
+  float sync = failedSync(p, t);
+  float dilemma = prisonerDilemma(p, t);
+
+  // Color scheme: green = cooperation, orange = competition, red = race to bottom
+  vec3 cooperation = vec3(0.0, 1.0, 0.25);
+  vec3 competition_color = vec3(1.0, 0.42, 0.21);
+  vec3 defection = vec3(1.0, 0.0, 0.0);
+
+  // Degradation over time - coordination fails
+  float degradation = min(t * 0.15, 1.0);
+
+  vec3 baseColor = mix(cooperation, competition_color, degradation * 0.5);
+  baseColor = mix(baseColor, defection, degradation * degradation);
+
+  // Combine patterns to show fragmented, uncoordinated landscape
+  float combined = competition * 0.4 + fragmentation * 0.3 + sync * 0.2;
+  combined *= (0.8 + dilemma * 0.4);
+
+  vec3 color = baseColor * combined;
+
+  // Add chaotic interference patterns showing conflict
+  float interference = sin(p.x * 8.0 + t) * sin(p.y * 8.0 - t);
+  interference = smoothstep(0.7, 1.0, interference);
+  color += competition_color * interference * 0.3;
+
+  // Flickering showing instability
+  float flicker = 0.85 + 0.15 * sin(t * 12.0 + length(p) * 5.0);
+  color *= flicker;
+
+  // Show isolated pockets of attempted coordination
+  float pockets = smoothstep(0.5, 0.8, competition);
+  color = mix(color, cooperation * 0.5, pockets * (1.0 - degradation) * 0.3);
+
+  gl_FragColor = vec4(color, 1.0);
+}
+`;
+
+function compileShader(source, type) {
+  const shader = gl.createShader(type);
+  gl.shaderSource(shader, source);
+  gl.compileShader(shader);
+  if(!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+    console.error(gl.getShaderInfoLog(shader));
+  }
+  return shader;
+}
+
+const vertShader = compileShader(vs, gl.VERTEX_SHADER);
+const fragShader = compileShader(fs, gl.FRAGMENT_SHADER);
+const program = gl.createProgram();
+gl.attachShader(program, vertShader);
+gl.attachShader(program, fragShader);
+gl.linkProgram(program);
+gl.useProgram(program);
+
+const positions = new Float32Array([-1,-1, 1,-1, -1,1, 1,1]);
+const buffer = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW);
+
+const posLoc = gl.getAttribLocation(program, 'pos');
+gl.enableVertexAttribArray(posLoc);
+gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+
+const resLoc = gl.getUniformLocation(program, 'resolution');
+const timeLoc = gl.getUniformLocation(program, 'time');
+
+const startTime = Date.now();
+
+function render() {
+  const time = (Date.now() - startTime) * 0.001;
+  gl.uniform2f(resLoc, canvas.width, canvas.height);
+  gl.uniform1f(timeLoc, time);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  requestAnimationFrame(render);
+}
+render();
+</script>
+</body>
+</html>

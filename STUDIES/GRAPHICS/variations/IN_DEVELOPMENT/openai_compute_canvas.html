@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>OpenAI Compute - Canvas Version</title>
+<style>
+  body {margin:0;overflow:hidden;background:#0a0a0a;color:#00ff41;font-family:'Courier New',monospace;}
+  canvas {position:absolute;top:0;left:0;}
+  #ui {position:fixed;bottom:20px;left:20px;background:rgba(10,20,10,0.95);padding:15px;
+       border:2px solid #00ff41;border-radius:8px;box-shadow:0 0 20px rgba(0,255,65,0.3);z-index:100;}
+  .info {font-size:11px;margin:5px 0;}
+  .model {font-size:10px;margin:3px 0;padding-left:10px;}
+</style>
+</head>
+<body>
+
+<canvas id="graph"></canvas>
+
+<div id="ui">
+  <div class="info" style="font-size:16px;margin-bottom:10px;">OpenAI Training Compute</div>
+  <div class="info">Exponential doubling: ~5.6 months</div>
+  <div class="info" style="border-top:1px solid #00ff4133;margin-top:8px;padding-top:8px;">Models:</div>
+  <div id="modelList"></div>
+</div>
+
+<script>
+const canvas = document.getElementById('graph');
+const ctx = canvas.getContext('2d');
+
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  draw();
+}
+window.addEventListener('resize', resize);
+
+const openaiModels = [
+  {name: 'GPT-1', date: '2018-06-11', flops: 1e21, color: '#00ff4140'},
+  {name: 'GPT-2', date: '2019-02-14', flops: 2.8e22, color: '#00ff4150'},
+  {name: 'GPT-3', date: '2020-06-11', flops: 3.14e23, color: '#00ff4170'},
+  {name: 'GPT-4', date: '2023-03-14', flops: 2.15e25, color: '#00ff41'},
+  {name: 'GPT-4o', date: '2024-05-13', flops: 5e25, color: '#00ff41'},
+  {name: 'o1', date: '2024-09-12', flops: 1e26, color: '#00ff41'},
+  {name: 'GPT-4.5', date: '2025-02-27', flops: 3e26, color: '#00ff41'},
+  {name: 'GPT-5', date: '2025-08-07', flops: 5e26, color: '#00ff41'}
+];
+
+const baseDate = new Date('2018-01-01');
+const modelData = openaiModels.map(m => {
+  const date = new Date(m.date);
+  const yearFraction = 2018 + (date - baseDate) / (1000 * 60 * 60 * 24 * 365.25);
+  return {...m, yearFraction};
+});
+
+// Build model list
+const modelList = document.getElementById('modelList');
+modelData.forEach(m => {
+  const div = document.createElement('div');
+  div.className = 'model';
+  div.textContent = `${m.name} (${m.date.slice(0,7)}): ${m.flops.toExponential(1)} FLOPS`;
+  modelList.appendChild(div);
+});
+
+function draw() {
+  const w = canvas.width;
+  const h = canvas.height;
+  const margin = {top: 60, right: 100, bottom: 80, left: 120};
+  const plotW = w - margin.left - margin.right;
+  const plotH = h - margin.top - margin.bottom;
+
+  ctx.fillStyle = '#0a0a0a';
+  ctx.fillRect(0, 0, w, h);
+
+  // Scales
+  const xMin = 2018, xMax = 2026;
+  const yMin = Math.log10(1e20), yMax = Math.log10(1e27);
+
+  const xScale = (year) => margin.left + ((year - xMin) / (xMax - xMin)) * plotW;
+  const yScale = (flops) => margin.top + plotH - ((Math.log10(flops) - yMin) / (yMax - yMin)) * plotH;
+
+  // Grid
+  ctx.strokeStyle = '#00ff4122';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([5, 5]);
+
+  // Y grid (log scale)
+  for(let exp = 21; exp <= 27; exp++) {
+    const y = yScale(Math.pow(10, exp));
+    ctx.beginPath();
+    ctx.moveTo(margin.left, y);
+    ctx.lineTo(margin.left + plotW, y);
+    ctx.stroke();
+  }
+
+  // X grid (years)
+  for(let year = 2018; year <= 2026; year++) {
+    const x = xScale(year);
+    ctx.beginPath();
+    ctx.moveTo(x, margin.top);
+    ctx.lineTo(x, margin.top + plotH);
+    ctx.stroke();
+  }
+
+  ctx.setLineDash([]);
+
+  // Axes
+  ctx.strokeStyle = '#00ff41';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(margin.left, margin.top);
+  ctx.lineTo(margin.left, margin.top + plotH);
+  ctx.lineTo(margin.left + plotW, margin.top + plotH);
+  ctx.stroke();
+
+  // Exponential curve
+  const gpt3 = modelData.find(m => m.name === 'GPT-3');
+  const gpt4 = modelData.find(m => m.name === 'GPT-4');
+  const b = (Math.log(gpt4.flops) - Math.log(gpt3.flops)) / (gpt4.yearFraction - gpt3.yearFraction);
+  const a = gpt3.flops / Math.exp(b * gpt3.yearFraction);
+
+  ctx.strokeStyle = '#00ff41';
+  ctx.lineWidth = 3;
+  ctx.shadowBlur = 15;
+  ctx.shadowColor = '#00ff41';
+  ctx.beginPath();
+
+  for(let year = 2018; year <= 2026; year += 0.01) {
+    const flops = a * Math.exp(b * year);
+    const x = xScale(year);
+    const y = yScale(flops);
+    if(year === 2018) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  // Model points
+  modelData.forEach(m => {
+    const x = xScale(m.yearFraction);
+    const y = yScale(m.flops);
+
+    // Point glow
+    ctx.shadowBlur = 20;
+    ctx.shadowColor = '#00ff41';
+    ctx.fillStyle = m.color;
+    ctx.beginPath();
+    ctx.arc(x, y, 8, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = '#0a0a0a';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Label
+    ctx.fillStyle = '#00ff41';
+    ctx.font = '12px "Courier New"';
+    ctx.textAlign = 'center';
+    ctx.fillText(m.name, x, y - 15);
+  });
+
+  // Axis labels
+  ctx.fillStyle = '#00ff41';
+  ctx.font = '14px "Courier New"';
+  ctx.textAlign = 'center';
+
+  // X-axis
+  for(let year = 2018; year <= 2026; year++) {
+    const x = xScale(year);
+    ctx.fillText(year, x, margin.top + plotH + 25);
+  }
+
+  // Y-axis (log scale)
+  ctx.textAlign = 'right';
+  for(let exp = 21; exp <= 27; exp++) {
+    const y = yScale(Math.pow(10, exp));
+    ctx.fillText(`10^${exp}`, margin.left - 10, y + 5);
+  }
+
+  // Titles
+  ctx.font = '20px "Courier New"';
+  ctx.textAlign = 'center';
+  ctx.fillText('OpenAI Training Compute Timeline (2018-2025)', w / 2, 30);
+
+  ctx.font = '12px "Courier New"';
+  ctx.fillText('Year', w / 2, h - 20);
+
+  ctx.save();
+  ctx.translate(30, h / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillText('Training Compute (FLOPS, log scale)', 0, 0);
+  ctx.restore();
+}
+
+resize();
+</script>
+</body>
+</html>

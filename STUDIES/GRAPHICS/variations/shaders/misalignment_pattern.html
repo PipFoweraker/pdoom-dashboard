@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Misalignment Pattern Shader</title>
+<style>
+  * {margin:0;padding:0;}
+  body {background:#000;overflow:hidden;}
+  canvas {display:block;width:100vw;height:100vh;}
+  #info {
+    position:absolute;
+    top:20px;
+    left:20px;
+    color:#ff6b35;
+    font-family:'Courier New',monospace;
+    font-size:20px;
+    text-shadow:0 0 10px #ff6b35,0 0 20px #ff6b35;
+    pointer-events:none;
+  }
+</style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+<div id="info">MISALIGNMENT PATTERN</div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const gl = canvas.getContext('webgl');
+
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  if(gl) gl.viewport(0, 0, canvas.width, canvas.height);
+}
+window.addEventListener('resize', resize);
+resize();
+
+const vs = `attribute vec2 pos; void main() {gl_Position = vec4(pos, 0.0, 1.0);}`;
+const fs = `
+precision highp float;
+uniform vec2 resolution;
+uniform float time;
+
+float hash(vec2 p) {
+  p = fract(p * vec2(123.45, 678.90));
+  p += dot(p, p + 34.56);
+  return fract(p.x * p.y);
+}
+
+// Two vector fields that should align but don't
+vec2 humanValues(vec2 p, float t) {
+  // Regular, ordered field pointing outward
+  return normalize(p) * (1.0 + 0.3 * sin(t));
+}
+
+vec2 aiObjective(vec2 p, float t) {
+  // Chaotic field that diverges increasingly from human values
+  float angle = atan(p.y, p.x) + t * 0.5;
+  float radius = length(p);
+  float divergence = sin(radius * 3.0 - t) * (0.5 + radius * 0.5);
+  angle += divergence;
+  return vec2(cos(angle), sin(angle));
+}
+
+float alignmentError(vec2 p, float t) {
+  vec2 human = humanValues(p, t);
+  vec2 ai = aiObjective(p, t);
+  // Measure angular difference between vectors
+  float dotProd = dot(normalize(human), normalize(ai));
+  return 1.0 - dotProd; // 0 = aligned, 2 = opposite
+}
+
+float deceptiveLayer(vec2 p, float t) {
+  // Surface appears aligned, but interior is misaligned
+  float surfaceDist = abs(length(p) - 1.5);
+  float deception = smoothstep(0.2, 0.0, surfaceDist);
+  return deception;
+}
+
+void main() {
+  vec2 uv = gl_FragCoord.xy / resolution;
+  vec2 p = (uv - 0.5) * 3.0;
+  p.x *= resolution.x / resolution.y;
+
+  float t = time * 0.3;
+
+  // Calculate misalignment
+  float error = alignmentError(p, t);
+  float deception = deceptiveLayer(p, t);
+
+  // Vector field visualization
+  vec2 human = humanValues(p, t);
+  vec2 ai = aiObjective(p, t);
+
+  // Grid showing divergence
+  vec2 humanGrid = fract(p + human * 0.5) - 0.5;
+  vec2 aiGrid = fract(p + ai * 0.5) - 0.5;
+
+  float humanLines = min(abs(humanGrid.x), abs(humanGrid.y));
+  float aiLines = min(abs(aiGrid.x), abs(aiGrid.y));
+
+  float humanVis = smoothstep(0.05, 0.0, humanLines);
+  float aiVis = smoothstep(0.05, 0.0, aiLines);
+
+  // Color: green for alignment, orange/red for misalignment
+  vec3 aligned = vec3(0.0, 1.0, 0.25);
+  vec3 warning = vec3(1.0, 0.42, 0.21);
+  vec3 critical = vec3(1.0, 0.0, 0.0);
+
+  // Deceptive alignment (looks green on surface)
+  vec3 surfaceColor = deception > 0.5 ? aligned : mix(warning, critical, error * 0.5);
+
+  // Combine visualizations
+  vec3 color = surfaceColor * (humanVis * 0.4 + aiVis * 0.6);
+
+  // Show misalignment intensity
+  color += vec3(error * 0.3, 0.0, error * 0.2);
+
+  // Pulsing to show instability
+  float pulse = 0.8 + 0.2 * sin(t * 4.0 + length(p) * 2.0);
+  color *= pulse;
+
+  // Add warning glow in misaligned regions
+  float glowIntensity = smoothstep(0.5, 1.5, error);
+  color += warning * glowIntensity * 0.3;
+
+  gl_FragColor = vec4(color, 1.0);
+}
+`;
+
+function compileShader(source, type) {
+  const shader = gl.createShader(type);
+  gl.shaderSource(shader, source);
+  gl.compileShader(shader);
+  if(!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+    console.error(gl.getShaderInfoLog(shader));
+  }
+  return shader;
+}
+
+const vertShader = compileShader(vs, gl.VERTEX_SHADER);
+const fragShader = compileShader(fs, gl.FRAGMENT_SHADER);
+const program = gl.createProgram();
+gl.attachShader(program, vertShader);
+gl.attachShader(program, fragShader);
+gl.linkProgram(program);
+gl.useProgram(program);
+
+const positions = new Float32Array([-1,-1, 1,-1, -1,1, 1,1]);
+const buffer = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW);
+
+const posLoc = gl.getAttribLocation(program, 'pos');
+gl.enableVertexAttribArray(posLoc);
+gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+
+const resLoc = gl.getUniformLocation(program, 'resolution');
+const timeLoc = gl.getUniformLocation(program, 'time');
+
+const startTime = Date.now();
+
+function render() {
+  const time = (Date.now() - startTime) * 0.001;
+  gl.uniform2f(resLoc, canvas.width, canvas.height);
+  gl.uniform1f(timeLoc, time);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  requestAnimationFrame(render);
+}
+render();
+</script>
+</body>
+</html>

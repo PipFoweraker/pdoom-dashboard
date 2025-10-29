@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>P(doom) Windows Screensaver</title>
+<style>
+  * {margin:0;padding:0;}
+  body {background:#008080;overflow:hidden;font-family:'MS Sans Serif',sans-serif;}
+  canvas {display:block;width:100vw;height:100vh;}
+  #info {
+    position:absolute;
+    top:20px;
+    left:50%;
+    transform:translateX(-50%);
+    color:#fff;
+    font-family:'MS Sans Serif',sans-serif;
+    font-size:28px;
+    font-weight:bold;
+    text-shadow:2px 2px 0px #000;
+    pointer-events:none;
+    letter-spacing:2px;
+  }
+</style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+<div id="info">P(doom) 95</div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const gl = canvas.getContext('webgl');
+
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  if(gl) gl.viewport(0, 0, canvas.width, canvas.height);
+}
+window.addEventListener('resize', resize);
+resize();
+
+const vs = `attribute vec2 pos; void main() {gl_Position = vec4(pos, 0.0, 1.0);}`;
+const fs = `
+precision highp float;
+uniform vec2 resolution;
+uniform float time;
+
+// Windows 95 style pipes screensaver meets P(doom)
+float hash(vec2 p) {
+  p = fract(p * vec2(123.45, 678.90));
+  p += dot(p, p + 34.56);
+  return fract(p.x * p.y);
+}
+
+// Retro 3D pipe segments
+float pipe(vec2 p, vec2 start, vec2 end, float thickness) {
+  vec2 pa = p - start;
+  vec2 ba = end - start;
+  float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
+  return length(pa - ba * h) - thickness;
+}
+
+// Pixelated effect
+vec2 pixelate(vec2 p, float size) {
+  return floor(p / size) * size;
+}
+
+// Windows 95 color palette
+vec3 win95Color(float id) {
+  if(id < 0.2) return vec3(1.0, 0.0, 0.0);      // Red
+  if(id < 0.4) return vec3(0.0, 1.0, 0.0);      // Lime
+  if(id < 0.6) return vec3(0.0, 0.0, 1.0);      // Blue
+  if(id < 0.8) return vec3(1.0, 1.0, 0.0);      // Yellow
+  return vec3(1.0, 0.0, 1.0);                    // Magenta
+}
+
+// Flying Windows logo style but "P(doom)" themed
+float pdoomLogo(vec2 p, float t, float id) {
+  // Rotate
+  float angle = t * (0.5 + id * 0.3);
+  float c = cos(angle);
+  float s = sin(angle);
+  vec2 rotP = vec2(c * p.x - s * p.y, s * p.x + c * p.y);
+
+  // Create window panes
+  float size = 0.15;
+  vec2 tl = rotP - vec2(-size, size);    // Top left
+  vec2 tr = rotP - vec2(size, size);     // Top right
+  vec2 bl = rotP - vec2(-size, -size);   // Bottom left
+  vec2 br = rotP - vec2(size, -size);    // Bottom right
+
+  float pane1 = max(abs(tl.x), abs(tl.y)) - size * 0.8;
+  float pane2 = max(abs(tr.x), abs(tr.y)) - size * 0.8;
+  float pane3 = max(abs(bl.x), abs(bl.y)) - size * 0.8;
+  float pane4 = max(abs(br.x), abs(br.y)) - size * 0.8;
+
+  float logo = min(min(pane1, pane2), min(pane3, pane4));
+
+  return logo;
+}
+
+// Starfield background
+float starfield(vec2 p, float t) {
+  vec2 cell = floor(p * 20.0);
+  float star = hash(cell);
+
+  if(star > 0.95) {
+    vec2 local = fract(p * 20.0) - 0.5;
+    float twinkle = 0.5 + 0.5 * sin(t * 5.0 + star * 10.0);
+    return smoothstep(0.1, 0.0, length(local)) * twinkle;
+  }
+
+  return 0.0;
+}
+
+void main() {
+  vec2 uv = gl_FragCoord.xy / resolution;
+  vec2 p = (uv - 0.5) * 3.0;
+  p.x *= resolution.x / resolution.y;
+
+  float t = time * 0.5;
+
+  // Teal Windows 95 background
+  vec3 bgColor = vec3(0.0, 0.5, 0.5);
+  vec3 color = bgColor;
+
+  // Add starfield
+  float stars = starfield(p, t);
+  color += vec3(1.0) * stars * 0.8;
+
+  // Multiple flying P(doom) logos
+  for(float i = 0.0; i < 5.0; i++) {
+    vec2 logoPos = vec2(
+      sin(t * (0.3 + i * 0.1) + i) * 1.2,
+      cos(t * (0.25 + i * 0.15) + i * 2.0) * 1.0
+    );
+
+    vec2 localP = p - logoPos;
+    float logo = pdoomLogo(localP, t, i);
+
+    // Color based on P(doom) level
+    float pdoomLevel = 0.1 + i * 0.15;
+    vec3 logoColor;
+    if(pdoomLevel < 0.15) {
+      logoColor = vec3(0.0, 1.0, 0.0);  // Green - safe
+    } else if(pdoomLevel < 0.3) {
+      logoColor = vec3(1.0, 1.0, 0.0);  // Yellow - warning
+    } else {
+      logoColor = vec3(1.0, 0.0, 0.0);  // Red - danger
+    }
+
+    // Draw logo with 3D effect (beveled edges)
+    float logoMask = smoothstep(0.02, -0.02, logo);
+    color = mix(color, logoColor, logoMask);
+
+    // Highlight (top-left)
+    float highlight = smoothstep(0.0, -0.03, logo + 0.02);
+    vec3 highlightColor = min(logoColor * 1.5, vec3(1.0));
+    color = mix(color, highlightColor, highlight * (1.0 - logoMask) * 0.5);
+
+    // Shadow (bottom-right)
+    float shadow = smoothstep(0.04, 0.02, logo);
+    color = mix(color, logoColor * 0.3, shadow * (1.0 - logoMask) * 0.3);
+
+    // Glow effect
+    float glow = smoothstep(0.15, 0.0, logo);
+    color += logoColor * glow * 0.3;
+  }
+
+  // Retro scanlines
+  float scanline = sin(uv.y * resolution.y * 0.5) * 0.5 + 0.5;
+  color *= 0.95 + scanline * 0.05;
+
+  // Vignette
+  float vignette = smoothstep(2.0, 0.5, length(p));
+  color *= vignette;
+
+  // CRT curvature effect (subtle)
+  vec2 curve = p * p * 0.1;
+  color *= 1.0 - length(curve);
+
+  // Add text banner at bottom
+  float bannerY = abs(uv.y - 0.1);
+  if(bannerY < 0.05) {
+    float bannerIntensity = smoothstep(0.05, 0.03, bannerY);
+    vec3 bannerColor = vec3(0.0, 0.0, 0.5); // Navy blue
+    color = mix(color, bannerColor, bannerIntensity * 0.8);
+
+    // Text effect (simulated)
+    float textPattern = sin(uv.x * 50.0 + time * 0.5) * 0.5 + 0.5;
+    textPattern *= smoothstep(0.03, 0.02, bannerY);
+    color += vec3(1.0) * textPattern * 0.3;
+  }
+
+  gl_FragColor = vec4(color, 1.0);
+}
+`;
+
+function compileShader(source, type) {
+  const shader = gl.createShader(type);
+  gl.shaderSource(shader, source);
+  gl.compileShader(shader);
+  if(!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+    console.error(gl.getShaderInfoLog(shader));
+  }
+  return shader;
+}
+
+const vertShader = compileShader(vs, gl.VERTEX_SHADER);
+const fragShader = compileShader(fs, gl.FRAGMENT_SHADER);
+const program = gl.createProgram();
+gl.attachShader(program, vertShader);
+gl.attachShader(program, fragShader);
+gl.linkProgram(program);
+gl.useProgram(program);
+
+const positions = new Float32Array([-1,-1, 1,-1, -1,1, 1,1]);
+const buffer = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW);
+
+const posLoc = gl.getAttribLocation(program, 'pos');
+gl.enableVertexAttribArray(posLoc);
+gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+
+const resLoc = gl.getUniformLocation(program, 'resolution');
+const timeLoc = gl.getUniformLocation(program, 'time');
+
+const startTime = Date.now();
+
+function render() {
+  const time = (Date.now() - startTime) * 0.001;
+
+  gl.uniform2f(resLoc, canvas.width, canvas.height);
+  gl.uniform1f(timeLoc, time);
+
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  requestAnimationFrame(render);
+}
+
+render();
+</script>
+</body>
+</html>

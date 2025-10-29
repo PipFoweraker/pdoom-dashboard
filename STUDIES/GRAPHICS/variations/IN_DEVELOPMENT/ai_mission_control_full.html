@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>AI Risk Mission Control - Full Dashboard</title>
+<style>
+  * {margin:0;padding:0;box-sizing:border-box;}
+  body {overflow:hidden;background:#0a0a0a;color:#00ff41;font-family:'Courier New',monospace;}
+  canvas {position:absolute;top:0;left:0;z-index:1;}
+
+  /* Main chart */
+  #chart {position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+          width:60%;height:65%;z-index:10;
+          background:rgba(10,20,10,0.85);border:2px solid #00ff41;
+          border-radius:10px;box-shadow:0 0 30px rgba(0,255,65,0.5);padding:15px;}
+  #title {text-align:center;font-size:20px;margin-bottom:5px;text-shadow:0 0 10px #00ff41;}
+
+  /* Sidebar widgets */
+  .widget {position:absolute;background:rgba(10,20,10,0.95);border:2px solid #00ff41;
+           border-radius:8px;box-shadow:0 0 20px rgba(0,255,65,0.3);padding:12px;z-index:100;
+           cursor:move;}
+  .widget-title {font-size:14px;text-align:center;margin-bottom:8px;border-bottom:1px solid #00ff4166;padding-bottom:5px;}
+  .widget-content {font-size:10px;line-height:1.4;}
+  .metric {margin:5px 0;padding:3px 0;}
+  .metric-label {opacity:0.7;}
+  .metric-value {float:right;color:#0f0;}
+
+  /* Compute info widget */
+  #computeInfo {top:20px;left:20px;width:280px;}
+
+  /* Cat cam */
+  #catCam {bottom:20px;right:20px;width:200px;}
+  #catCam img {width:100%;border-radius:5px;border:1px solid #00ff41;}
+
+  /* Metrics panel */
+  #metrics {top:20px;right:20px;width:250px;}
+
+  /* Risk gauge */
+  #riskGauge {bottom:20px;left:20px;width:220px;}
+
+  /* Status log */
+  #statusLog {bottom:240px;left:20px;width:280px;max-height:180px;overflow-y:auto;}
+  .log-entry {font-size:9px;margin:3px 0;opacity:0.8;}
+  .log-time {color:#0f0;}
+
+  /* Draggable */
+  .dragging {opacity:0.8;cursor:grabbing !important;}
+</style>
+<script src="https://cdn.plot.ly/plotly-2.26.0.min.js"></script>
+</head>
+<body>
+
+<canvas id="shader"></canvas>
+
+<!-- Main Chart -->
+<div id="chart">
+  <div id="title">AI Training Compute & P(doom) Trajectory</div>
+  <div id="graph" style="width:100%;height:calc(100% - 30px);"></div>
+</div>
+
+<!-- Compute Info Widget (movable) -->
+<div id="computeInfo" class="widget">
+  <div class="widget-title">OpenAI Training Compute</div>
+  <div class="widget-content">
+    <div style="text-align:center;margin-bottom:8px;font-size:9px;opacity:0.7;">Exponential doubling: ~5.6 months</div>
+    <div style="border-top:1px solid #00ff4133;padding-top:5px;">
+      <div style="font-weight:bold;margin-bottom:3px;font-size:9px;">Models:</div>
+      <div class="metric">GPT-1 (2018-06): <span style="float:right;">1.0e+21 FLOPS</span></div>
+      <div class="metric">GPT-2 (2019-02): <span style="float:right;">2.8e+22 FLOPS</span></div>
+      <div class="metric">GPT-3 (2020-06): <span style="float:right;">3.1e+23 FLOPS</span></div>
+      <div class="metric">GPT-4 (2023-03): <span style="float:right;">2.1e+25 FLOPS</span></div>
+      <div class="metric">GPT-4o (2024-05): <span style="float:right;">5.0e+25 FLOPS</span></div>
+      <div class="metric">o1 (2024-09): <span style="float:right;">1.0e+26 FLOPS</span></div>
+      <div class="metric">GPT-4.5 (2025-02): <span style="float:right;">3.0e+26 FLOPS</span></div>
+      <div class="metric">GPT-5 (2025-08): <span style="float:right;">5.0e+26 FLOPS</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- Metrics Panel -->
+<div id="metrics" class="widget">
+  <div class="widget-title">System Metrics</div>
+  <div class="widget-content">
+    <div class="metric"><span class="metric-label">Current Year:</span><span class="metric-value" id="currentYear">2025</span></div>
+    <div class="metric"><span class="metric-label">Models Tracked:</span><span class="metric-value">16</span></div>
+    <div class="metric"><span class="metric-label">Doubling Time:</span><span class="metric-value">5.6 mo</span></div>
+    <div class="metric"><span class="metric-label">Compute Growth:</span><span class="metric-value">52% OOM/yr</span></div>
+    <div class="metric"><span class="metric-label">Latest Model:</span><span class="metric-value">GPT-5</span></div>
+    <div class="metric"><span class="metric-label">Training Cost:</span><span class="metric-value">$1B+</span></div>
+    <div class="metric"><span class="metric-label">Est. P(doom):</span><span class="metric-value" id="pdoomValue">12%</span></div>
+    <div class="metric"><span class="metric-label">Safety Buffer:</span><span class="metric-value" style="color:#fa0;">LOW</span></div>
+  </div>
+</div>
+
+<!-- Risk Gauge -->
+<div id="riskGauge" class="widget">
+  <div class="widget-title">Risk Assessment</div>
+  <div class="widget-content">
+    <canvas id="gaugeCanvas" width="180" height="100"></canvas>
+    <div style="text-align:center;margin-top:5px;">
+      <div style="font-size:20px;color:#fa0;text-shadow:0 0 10px #fa0;">CAUTION</div>
+      <div style="font-size:9px;margin-top:3px;opacity:0.7;">Exponential acceleration detected</div>
+    </div>
+  </div>
+</div>
+
+<!-- Status Log -->
+<div id="statusLog" class="widget">
+  <div class="widget-title">System Log</div>
+  <div class="widget-content" id="logContent"></div>
+</div>
+
+<!-- Cat Cam -->
+<div id="catCam" class="widget">
+  <div class="widget-title">Office Cat Cam</div>
+  <div class="widget-content">
+    <img id="catImage" src="/home/laptop/Documents/Projects/ai-sandbox/pdoom1/assets/images/pdoom1 office cat default png.png" alt="Office Cat">
+    <div style="text-align:center;margin-top:5px;font-size:9px;opacity:0.7;">Status: Observing</div>
+  </div>
+</div>
+
+<script>
+/* ========== Shader Background ========== */
+const shaderCanvas = document.getElementById('shader');
+const gl = shaderCanvas.getContext('webgl');
+
+function resizeShader() {
+  shaderCanvas.width = window.innerWidth;
+  shaderCanvas.height = window.innerHeight;
+  if(gl) gl.viewport(0, 0, shaderCanvas.width, shaderCanvas.height);
+}
+window.addEventListener('resize', resizeShader);
+resizeShader();
+
+const vsSource = `attribute vec2 pos; void main() {gl_Position = vec4(pos, 0.0, 1.0);}`;
+const fsSource = `
+precision highp float;
+uniform vec2 resolution;
+uniform float time;
+uniform vec2 offset;
+
+float hash(vec2 p) {p = fract(p * vec2(123.45, 678.90)); p += dot(p, p + 34.56); return fract(p.x * p.y);}
+float noise(vec2 p) {
+  vec2 i = floor(p), f = fract(p);
+  f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(hash(i), hash(i + vec2(1,0)), f.x), mix(hash(i + vec2(0,1)), hash(i + vec2(1,1)), f.x), f.y);
+}
+
+vec2 voronoi(vec2 p) {
+  vec2 n = floor(p), f = fract(p);
+  float minDist = 10.0;
+  for(int j = -1; j <= 1; j++) {
+    for(int i = -1; i <= 1; i++) {
+      vec2 neighbor = vec2(float(i), float(j));
+      vec2 point = hash(n + neighbor) * vec2(sin(time * 0.3 + hash(n + neighbor) * 6.28), cos(time * 0.3 + hash(n + neighbor + vec2(10,10)) * 6.28)) * 0.4;
+      float dist = length(neighbor + point - f);
+      minDist = min(minDist, dist);
+    }
+  }
+  return vec2(minDist, 0);
+}
+
+float neuralConnections(vec2 p, float t) {
+  vec2 vor = voronoi(p * 3.5);
+  float neuron = smoothstep(0.18, 0.12, vor.x) * (0.3 + 0.2 * sin(t * 2.0));
+  vec2 grid = fract(p * 6.0) - 0.5;
+  float axonH = smoothstep(0.008, 0.0, abs(grid.y + sin(p.x * 2.5 + t * 0.5) * 0.25)) * (0.2 + 0.1 * sin(t * 2.0 + p.x * 8.0));
+  float axonV = smoothstep(0.008, 0.0, abs(grid.x + sin(p.y * 2.5 + t * 0.6) * 0.25)) * (0.2 + 0.1 * sin(t * 2.0 + p.y * 8.0));
+  return neuron * 1.2 + axonH + axonV;
+}
+
+void main() {
+  vec2 uv = gl_FragCoord.xy / resolution;
+  vec2 p = (uv * 2.0 - 1.0) + offset;
+  p.x *= resolution.x / resolution.y;
+  float t = time * 0.3;
+  float neural = neuralConnections(p, t);
+  float organic = noise(p * 4.0 + t * 0.15) * 0.15;
+  float pattern = neural + organic;
+  vec3 color = mix(vec3(0.0, 0.15, 0.05), vec3(0.0, 0.4, 0.3), neural * 0.5);
+  color = mix(color, vec3(0.0, 1.0, 0.25), neural * neural * 0.3);
+  color *= pattern * 0.25;
+  color *= 0.85 + 0.15 * sin(t * 1.5);
+  color *= smoothstep(1.5, 0.3, length(p));
+  color += hash(uv * time) * 0.03 * 0.125;
+  color *= 0.4;
+  gl_FragColor = vec4(color, 1.0);
+}
+`;
+
+function compileShader(source, type) {
+  const shader = gl.createShader(type);
+  gl.shaderSource(shader, source);
+  gl.compileShader(shader);
+  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+    console.error('Shader compile error:', gl.getShaderInfoLog(shader));
+    return null;
+  }
+  return shader;
+}
+
+const vs = compileShader(vsSource, gl.VERTEX_SHADER);
+const fs = compileShader(fsSource, gl.FRAGMENT_SHADER);
+const program = gl.createProgram();
+gl.attachShader(program, vs);
+gl.attachShader(program, fs);
+gl.linkProgram(program);
+gl.useProgram(program);
+
+const positions = new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]);
+const buffer = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW);
+
+const posLoc = gl.getAttribLocation(program, 'pos');
+gl.enableVertexAttribArray(posLoc);
+gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+
+const resolutionLoc = gl.getUniformLocation(program, 'resolution');
+const timeLoc = gl.getUniformLocation(program, 'time');
+const offsetLoc = gl.getUniformLocation(program, 'offset');
+
+let startTime = Date.now();
+let shaderOffset = {x: 0, y: 0};
+
+function animateShader() {
+  const time = (Date.now() - startTime) * 0.001;
+  gl.uniform2f(resolutionLoc, shaderCanvas.width, shaderCanvas.height);
+  gl.uniform1f(timeLoc, time);
+  gl.uniform2f(offsetLoc, shaderOffset.x, shaderOffset.y);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  requestAnimationFrame(animateShader);
+}
+animateShader();
+
+// Mouse movement for shader offset
+document.addEventListener('mousemove', (e) => {
+  shaderOffset.x = (e.clientX / window.innerWidth - 0.5) * 0.2;
+  shaderOffset.y = (e.clientY / window.innerHeight - 0.5) * 0.2;
+});
+
+/* ========== AI Models Data ========== */
+const aiModels = [
+  // OpenAI
+  {name: 'GPT-1', company: 'OpenAI', date: '2018-06-11', flops: 1e21},
+  {name: 'GPT-2', company: 'OpenAI', date: '2019-02-14', flops: 2.8e22},
+  {name: 'GPT-3', company: 'OpenAI', date: '2020-06-11', flops: 3.14e23},
+  {name: 'GPT-4', company: 'OpenAI', date: '2023-03-14', flops: 2.15e25},
+  {name: 'GPT-4o', company: 'OpenAI', date: '2024-05-13', flops: 5e25},
+  {name: 'o1', company: 'OpenAI', date: '2024-09-12', flops: 1e26},
+  {name: 'o3', company: 'OpenAI', date: '2024-12-20', flops: 1.5e26},
+  {name: 'GPT-4.5', company: 'OpenAI', date: '2025-02-27', flops: 3e26},
+  {name: 'GPT-4.1', company: 'OpenAI', date: '2025-04-14', flops: 3.5e26},
+  {name: 'o4-mini', company: 'OpenAI', date: '2025-04-16', flops: 2e26},
+  {name: 'GPT-5', company: 'OpenAI', date: '2025-08-07', flops: 5e26},
+  // Google
+  {name: 'PaLM', company: 'Google', date: '2022-04-01', flops: 2.56e24},
+  {name: 'Gemini 1.0', company: 'Google', date: '2023-12-06', flops: 5e25},
+  {name: 'Gemini 2.5', company: 'Google', date: '2025-02-01', flops: 5.6e25},
+  // Meta
+  {name: 'LLaMA 3.1', company: 'Meta', date: '2024-07-23', flops: 3.8e25},
+  // Anthropic
+  {name: 'Claude 3', company: 'Anthropic', date: '2024-03-04', flops: 1e25}
+];
+
+const baseDate = new Date('2018-01-01');
+const modelData = aiModels.map(m => {
+  const date = new Date(m.date);
+  const yearFraction = 2018 + (date - baseDate) / (1000 * 60 * 60 * 24 * 365.25);
+  return {...m, yearFraction};
+});
+
+// Exponential fit
+const gpt3 = modelData.find(m => m.name === 'GPT-3');
+const gpt4 = modelData.find(m => m.name === 'GPT-4');
+const b = (Math.log(gpt4.flops) - Math.log(gpt3.flops)) / (gpt4.yearFraction - gpt3.yearFraction);
+const a = gpt3.flops / Math.exp(b * gpt3.yearFraction);
+
+// Generate compute curve
+const computeCurve = [];
+for(let year = 2018; year <= 2027; year += 0.05) {
+  computeCurve.push({year, flops: a * Math.exp(b * year)});
+}
+
+// Generate p(doom) curve - sigmoid-like growth
+function pdoomFunc(year) {
+  // Start low (~1% in 2020), reach ~12% by 2025, project to ~30% by 2027
+  const t = (year - 2020) / 7; // Normalize 2020-2027
+  return 0.01 + 0.29 * (1 / (1 + Math.exp(-8 * (t - 0.5))));
+}
+
+const pdoomCurve = [];
+for(let year = 2020; year <= 2027; year += 0.05) {
+  pdoomCurve.push({year, pdoom: pdoomFunc(year)});
+}
+
+/* ========== Plotly Chart ========== */
+const trace1 = {
+  x: computeCurve.map(p => p.year),
+  y: computeCurve.map(p => p.flops),
+  type: 'scatter',
+  mode: 'lines',
+  name: 'Compute Trend',
+  yaxis: 'y',
+  line: {color: '#00ff41', width: 3},
+  hovertemplate: '%{y:.2e} FLOPS<extra></extra>'
+};
+
+const trace2 = {
+  x: modelData.map(m => m.yearFraction),
+  y: modelData.map(m => m.flops),
+  type: 'scatter',
+  mode: 'markers+text',
+  name: 'AI Models',
+  yaxis: 'y',
+  marker: {size: 10, color: '#00ff41', line: {color: '#0a0a0a', width: 2}},
+  text: modelData.map(m => m.name),
+  textposition: 'top center',
+  textfont: {family: 'Courier New', size: 8, color: '#00ff41'},
+  hovertemplate: '<b>%{text}</b><br>%{y:.2e} FLOPS<extra></extra>'
+};
+
+const trace3 = {
+  x: pdoomCurve.map(p => p.year),
+  y: pdoomCurve.map(p => p.pdoom),
+  type: 'scatter',
+  mode: 'lines',
+  name: 'P(doom)',
+  yaxis: 'y2',
+  line: {color: '#fa0', width: 3, dash: 'dot'},
+  hovertemplate: 'P(doom): %{y:.1%}<extra></extra>'
+};
+
+const layout = {
+  xaxis: {
+    title: {text: 'Year', font: {family: 'Courier New', size: 12, color: '#00ff41'}},
+    gridcolor: '#00ff4133',
+    tickfont: {family: 'Courier New', size: 10, color: '#00ff41'},
+    range: [2017.5, 2027]
+  },
+  yaxis: {
+    title: {text: 'Training Compute (FLOPS)', font: {family: 'Courier New', size: 12, color: '#00ff41'}},
+    type: 'log',
+    gridcolor: '#00ff4133',
+    tickfont: {family: 'Courier New', size: 10, color: '#00ff41'},
+    exponentformat: 'e',
+    side: 'left'
+  },
+  yaxis2: {
+    title: {text: 'P(doom)', font: {family: 'Courier New', size: 12, color: '#fa0'}},
+    tickfont: {family: 'Courier New', size: 10, color: '#fa0'},
+    overlaying: 'y',
+    side: 'right',
+    tickformat: '.0%',
+    range: [0, 0.35]
+  },
+  plot_bgcolor: 'rgba(0,0,0,0)',
+  paper_bgcolor: 'rgba(0,0,0,0)',
+  font: {family: 'Courier New', color: '#00ff41'},
+  legend: {
+    x: 0.02, y: 0.98,
+    font: {family: 'Courier New', size: 10, color: '#00ff41'},
+    bgcolor: 'rgba(10,20,10,0.7)',
+    bordercolor: '#00ff41',
+    borderwidth: 1
+  },
+  margin: {l: 70, r: 70, t: 10, b: 50},
+  hovermode: 'closest'
+};
+
+Plotly.newPlot('graph', [trace1, trace2, trace3], layout, {responsive: true, displayModeBar: false});
+
+/* ========== Risk Gauge ========== */
+const gaugeCtx = document.getElementById('gaugeCanvas').getContext('2d');
+function drawGauge() {
+  const w = 180, h = 100;
+  const cx = w / 2, cy = h - 10;
+  const r = 70;
+
+  gaugeCtx.clearRect(0, 0, w, h);
+
+  // Arc background
+  gaugeCtx.strokeStyle = '#00ff4133';
+  gaugeCtx.lineWidth = 8;
+  gaugeCtx.beginPath();
+  gaugeCtx.arc(cx, cy, r, Math.PI, 0, false);
+  gaugeCtx.stroke();
+
+  // Arc filled (12% = 0.12 * π radians from left)
+  const pdoomVal = pdoomFunc(2025);
+  const angle = Math.PI + pdoomVal * Math.PI;
+  gaugeCtx.strokeStyle = '#fa0';
+  gaugeCtx.shadowBlur = 10;
+  gaugeCtx.shadowColor = '#fa0';
+  gaugeCtx.beginPath();
+  gaugeCtx.arc(cx, cy, r, Math.PI, angle, false);
+  gaugeCtx.stroke();
+  gaugeCtx.shadowBlur = 0;
+
+  // Value text
+  gaugeCtx.fillStyle = '#00ff41';
+  gaugeCtx.font = '16px "Courier New"';
+  gaugeCtx.textAlign = 'center';
+  gaugeCtx.fillText(`${(pdoomVal * 100).toFixed(1)}%`, cx, cy - r + 30);
+}
+drawGauge();
+
+/* ========== System Log ========== */
+const logEntries = [
+  '[22:34:12] GPT-5 training completed',
+  '[22:18:07] Compute milestone: 5×10²⁶ FLOPS',
+  '[22:03:45] P(doom) updated: 12.1%',
+  '[21:52:19] Model scaling factor: 1592× GPT-3',
+  '[21:41:33] Doubling time: 5.6 months',
+  '[21:30:08] Safety protocols: ACTIVE',
+  '[21:15:42] Monitoring 16 frontier models',
+  '[21:00:00] System status: OPERATIONAL'
+];
+
+const logContent = document.getElementById('logContent');
+logEntries.forEach(entry => {
+  const div = document.createElement('div');
+  div.className = 'log-entry';
+  div.innerHTML = `<span class="log-time">${entry.match(/\[.*?\]/)[0]}</span> ${entry.replace(/\[.*?\]/, '')}`;
+  logContent.appendChild(div);
+});
+
+/* ========== Draggable Widgets ========== */
+const widgets = document.querySelectorAll('.widget');
+widgets.forEach(widget => {
+  let isDragging = false;
+  let offsetX, offsetY;
+
+  widget.addEventListener('mousedown', (e) => {
+    isDragging = true;
+    offsetX = e.clientX - widget.offsetLeft;
+    offsetY = e.clientY - widget.offsetTop;
+    widget.classList.add('dragging');
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (isDragging) {
+      widget.style.left = (e.clientX - offsetX) + 'px';
+      widget.style.top = (e.clientY - offsetY) + 'px';
+    }
+  });
+
+  document.addEventListener('mouseup', () => {
+    isDragging = false;
+    widget.classList.remove('dragging');
+  });
+});
+
+/* ========== Update current year display ========== */
+document.getElementById('currentYear').textContent = new Date().getFullYear();
+document.getElementById('pdoomValue').textContent = `${(pdoomFunc(2025) * 100).toFixed(1)}%`;
+
+/* ========== Cat Cam Animation ========== */
+const catImages = [
+  '/home/laptop/Documents/Projects/ai-sandbox/pdoom1/assets/images/pdoom1 office cat default png.png',
+  '/home/laptop/Documents/Projects/ai-sandbox/pdoom1/assets/images/small doom caat.png',
+  '/home/laptop/Documents/Projects/ai-sandbox/pdoom1/assets/images/20250915_0948_Doom\'s Cat Throne_simple_compose_01k559ztmqefybe80mbvyqgyvd.png'
+];
+let catIndex = 0;
+setInterval(() => {
+  catIndex = (catIndex + 1) % catImages.length;
+  document.getElementById('catImage').src = catImages[catIndex];
+}, 5000);
+</script>
+</body>
+</html>

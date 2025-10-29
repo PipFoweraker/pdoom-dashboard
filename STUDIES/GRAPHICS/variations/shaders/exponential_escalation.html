@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Exponential Escalation Shader</title>
+<style>
+  * {margin:0;padding:0;}
+  body {background:#000;overflow:hidden;}
+  canvas {display:block;width:100vw;height:100vh;}
+  #info {
+    position:absolute;
+    top:20px;
+    left:20px;
+    color:#00ff41;
+    font-family:'Courier New',monospace;
+    font-size:20px;
+    text-shadow:0 0 10px #00ff41,0 0 20px #00ff41;
+    pointer-events:none;
+  }
+</style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+<div id="info">EXPONENTIAL ESCALATION</div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const gl = canvas.getContext('webgl');
+
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  if(gl) gl.viewport(0, 0, canvas.width, canvas.height);
+}
+window.addEventListener('resize', resize);
+resize();
+
+const vs = `attribute vec2 pos; void main() {gl_Position = vec4(pos, 0.0, 1.0);}`;
+const fs = `
+precision highp float;
+uniform vec2 resolution;
+uniform float time;
+
+float exponentialWave(vec2 p, float t) {
+  // Create expanding exponential rings from center
+  float dist = length(p);
+  float exponentialDist = exp(dist * 2.0 - t * 0.8);
+  float wave = sin(exponentialDist * 0.3);
+  return wave;
+}
+
+float gridPattern(vec2 p, float t) {
+  // Grid that grows exponentially tighter toward center
+  vec2 scale = vec2(exp(length(p) * 1.5 - t * 0.5));
+  vec2 grid = abs(fract(p * scale) - 0.5);
+  float gridLine = min(grid.x, grid.y);
+  return smoothstep(0.02, 0.0, gridLine);
+}
+
+float recursiveSplit(vec2 p, float t) {
+  // Recursive splitting pattern showing doubling
+  float iterations = 8.0;
+  float pattern = 0.0;
+  vec2 pp = p;
+
+  for(float i = 0.0; i < 8.0; i++) {
+    float scale = pow(2.0, i);
+    vec2 cell = fract(pp * scale + t * 0.1) - 0.5;
+    float cellDist = length(cell);
+    pattern += smoothstep(0.4, 0.35, cellDist) * (1.0 / scale);
+  }
+
+  return pattern;
+}
+
+void main() {
+  vec2 uv = gl_FragCoord.xy / resolution;
+  vec2 p = (uv - 0.5) * 2.0;
+  p.x *= resolution.x / resolution.y;
+
+  float t = time * 0.5;
+
+  // Combine exponential patterns
+  float wave = exponentialWave(p, t);
+  float grid = gridPattern(p, t);
+  float splits = recursiveSplit(p, t);
+
+  // Distance-based intensity (center is origin point)
+  float intensity = exp(-length(p) * 0.3);
+
+  // Color progression: green -> orange -> red based on distance from center
+  float progression = smoothstep(0.0, 2.0, length(p) + sin(t) * 0.3);
+
+  vec3 green = vec3(0.0, 1.0, 0.25);
+  vec3 orange = vec3(1.0, 0.42, 0.21);
+  vec3 red = vec3(1.0, 0.0, 0.0);
+
+  vec3 baseColor = progression < 0.5
+    ? mix(green, orange, progression * 2.0)
+    : mix(orange, red, (progression - 0.5) * 2.0);
+
+  // Combine patterns
+  float combined = wave * 0.4 + grid * 0.3 + splits * 0.5;
+  combined *= intensity;
+
+  // Add pulsing to show acceleration
+  float pulse = 0.8 + 0.2 * sin(t * 3.0);
+  combined *= pulse;
+
+  vec3 color = baseColor * combined * 1.5;
+
+  // Add glow
+  color += baseColor * smoothstep(0.0, 1.0, combined) * 0.3;
+
+  gl_FragColor = vec4(color, 1.0);
+}
+`;
+
+function compileShader(source, type) {
+  const shader = gl.createShader(type);
+  gl.shaderSource(shader, source);
+  gl.compileShader(shader);
+  if(!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+    console.error(gl.getShaderInfoLog(shader));
+  }
+  return shader;
+}
+
+const vertShader = compileShader(vs, gl.VERTEX_SHADER);
+const fragShader = compileShader(fs, gl.FRAGMENT_SHADER);
+const program = gl.createProgram();
+gl.attachShader(program, vertShader);
+gl.attachShader(program, fragShader);
+gl.linkProgram(program);
+gl.useProgram(program);
+
+const positions = new Float32Array([-1,-1, 1,-1, -1,1, 1,1]);
+const buffer = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW);
+
+const posLoc = gl.getAttribLocation(program, 'pos');
+gl.enableVertexAttribArray(posLoc);
+gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+
+const resLoc = gl.getUniformLocation(program, 'resolution');
+const timeLoc = gl.getUniformLocation(program, 'time');
+
+const startTime = Date.now();
+
+function render() {
+  const time = (Date.now() - startTime) * 0.001;
+  gl.uniform2f(resLoc, canvas.width, canvas.height);
+  gl.uniform1f(timeLoc, time);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  requestAnimationFrame(render);
+}
+render();
+</script>
+</body>
+</html>

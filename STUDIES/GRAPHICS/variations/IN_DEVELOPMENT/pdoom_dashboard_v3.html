@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>P(DOOM) DASHBOARD – AI Existential Risk Monitor</title>
+<script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+<style>
+  * {margin:0;padding:0;box-sizing:border-box;}
+  body {
+    background:#000;
+    color:#00ff41;
+    font-family:'Courier New',Consolas,monospace;
+    overflow:hidden;
+  }
+
+  canvas {position:absolute;top:0;left:0;z-index:1;}
+  #container {position:relative;z-index:10;width:100vw;height:100vh;}
+
+  /* Header with better contrast */
+  #header {
+    background:linear-gradient(180deg, rgba(0,0,0,0.95) 0%, rgba(10,20,10,0.9) 100%);
+    border-bottom:3px solid #00ff41;
+    padding:15px 25px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    box-shadow:0 0 30px rgba(0,255,65,0.6);
+  }
+
+  #header h1 {
+    font-size:28px;
+    text-shadow:0 0 20px #00ff41, 0 0 40px #00ff4188;
+    letter-spacing:4px;
+    font-weight:bold;
+  }
+
+  #timestamp {
+    font-size:16px;
+    color:#0ff;
+    text-shadow:0 0 12px #0ff;
+    font-weight:bold;
+  }
+
+  #status {
+    font-size:13px;
+    color:#ff6b35;
+    text-shadow:0 0 15px #ff6b35;
+    font-weight:bold;
+    animation:statusPulse 2s infinite;
+  }
+
+  @keyframes statusPulse {
+    0%, 100% {opacity:1;}
+    50% {opacity:0.7;}
+  }
+
+  /* Test Controls */
+  #testControls {
+    position:fixed;
+    top:80px;
+    right:20px;
+    background:rgba(0,0,0,0.95);
+    border:3px solid #00ff41;
+    border-radius:8px;
+    padding:15px;
+    z-index:200;
+    box-shadow:0 0 30px rgba(0,255,65,0.5);
+    min-width:320px;
+  }
+
+  .control-title {
+    font-size:14px;
+    text-align:center;
+    margin-bottom:12px;
+    text-shadow:0 0 10px #00ff41;
+    font-weight:bold;
+    border-bottom:2px solid #00ff41;
+    padding-bottom:8px;
+  }
+
+  .slider-group {
+    margin:12px 0;
+  }
+
+  .slider-label {
+    font-size:11px;
+    margin-bottom:5px;
+    display:flex;
+    justify-content:space-between;
+  }
+
+  .slider-value {
+    color:#ff6b35;
+    text-shadow:0 0 8px #ff6b35;
+    font-weight:bold;
+  }
+
+  input[type="range"] {
+    width:100%;
+    height:8px;
+    background:linear-gradient(to right, #00ff41, #ff6b35, #f00);
+    border-radius:5px;
+    outline:none;
+    opacity:0.9;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    appearance:none;
+    width:20px;
+    height:20px;
+    background:#00ff41;
+    cursor:pointer;
+    border-radius:50%;
+    box-shadow:0 0 15px #00ff41;
+  }
+
+  /* Main grid with better spacing */
+  #mainGrid {
+    display:grid;
+    grid-template-columns: 320px 1fr 320px;
+    grid-template-rows: auto 1fr;
+    gap:15px;
+    height:calc(100vh - 75px);
+    padding:15px;
+  }
+
+  /* Graph with high contrast border */
+  #graphContainer {
+    grid-column:2;
+    grid-row:2;
+    background:rgba(0,0,0,0.9);
+    border:3px solid #00ff41;
+    border-radius:8px;
+    padding:20px;
+    box-shadow:0 0 40px rgba(0,255,65,0.4) inset, 0 0 30px rgba(0,255,65,0.3);
+  }
+
+  #graph {width:100%;height:100%;}
+
+  /* Panels with high contrast */
+  .panel {
+    background:rgba(0,0,0,0.95);
+    border:3px solid #00ff41;
+    border-radius:8px;
+    padding:15px;
+    overflow-y:auto;
+    box-shadow:0 0 25px rgba(0,255,65,0.3);
+  }
+
+  #leftPanel {grid-column:1;grid-row:2;}
+  #rightPanel {grid-column:3;grid-row:2;}
+
+  .panel-title {
+    font-size:16px;
+    text-align:center;
+    padding:10px;
+    background:rgba(0,255,65,0.2);
+    border:2px solid #00ff41;
+    margin:-15px -15px 15px -15px;
+    text-shadow:0 0 15px #00ff41;
+    font-weight:bold;
+    letter-spacing:2px;
+  }
+
+  /* Metrics with better visibility */
+  .metric-group {
+    margin-bottom:18px;
+    padding:12px;
+    background:rgba(0,40,20,0.8);
+    border-left:4px solid #00ff41;
+    border-radius:4px;
+    animation:metricPulse 5s infinite ease-in-out;
+  }
+
+  @keyframes metricPulse {
+    0%, 100% {border-left-color:#00ff41;box-shadow:0 0 10px rgba(0,255,65,0.3);}
+    50% {border-left-color:#00ff4188;box-shadow:0 0 5px rgba(0,255,65,0.2);}
+  }
+
+  .metric-label {
+    font-size:11px;
+    opacity:0.85;
+    text-transform:uppercase;
+    letter-spacing:1.5px;
+    font-weight:bold;
+    text-shadow:0 0 5px #00ff41;
+  }
+
+  .metric-value {
+    font-size:22px;
+    color:#00ff41;
+    text-shadow:0 0 15px #00ff41, 0 0 30px #00ff4166;
+    margin-top:5px;
+    font-weight:bold;
+  }
+
+  .metric-subtext {
+    font-size:10px;
+    opacity:0.7;
+    margin-top:3px;
+    font-style:italic;
+  }
+
+  .warning {
+    color:#ff6b35 !important;
+    text-shadow:0 0 15px #ff6b35, 0 0 30px #ff6b3566 !important;
+    border-left-color:#ff6b35 !important;
+  }
+
+  .critical {
+    color:#f00 !important;
+    text-shadow:0 0 20px #f00, 0 0 40px #f0066 !important;
+    animation:criticalBlink 1.5s infinite;
+    border-left-color:#f00 !important;
+  }
+
+  @keyframes criticalBlink {
+    0%, 50%, 100% {opacity:1;}
+    25%, 75% {opacity:0.7;}
+  }
+
+  /* Cat cam */
+  #catCam {
+    margin-top:18px;
+    padding:12px;
+    background:rgba(0,20,10,0.9);
+    border:2px solid #00ff41;
+    border-radius:6px;
+  }
+
+  #catCam img {
+    width:100%;
+    border-radius:6px;
+    border:2px solid #00ff41;
+    box-shadow:0 0 20px rgba(0,255,65,0.4);
+  }
+
+  #catStatus {
+    text-align:center;
+    font-size:10px;
+    margin-top:8px;
+    opacity:0.8;
+    text-shadow:0 0 8px #00ff41;
+    font-weight:bold;
+  }
+
+  /* Log with better readability */
+  .log-entry {
+    font-size:10px;
+    margin:6px 0;
+    padding:6px;
+    background:rgba(0,20,10,0.7);
+    border-left:3px solid #00ff4166;
+    border-radius:3px;
+  }
+
+  .log-time {color:#0ff;text-shadow:0 0 8px #0ff;font-weight:bold;}
+  .log-warn {border-left-color:#ff6b35;}
+  .log-error {border-left-color:#f00;}
+
+  /* Researcher estimates */
+  .researcher-item {
+    margin:10px 0;
+    padding:8px;
+    background:rgba(0,30,15,0.7);
+    border-left:3px solid #00ff41;
+    border-radius:3px;
+  }
+
+  .researcher-name {
+    font-size:11px;
+    font-weight:bold;
+    text-shadow:0 0 8px #00ff41;
+  }
+
+  .researcher-estimate {
+    font-size:16px;
+    float:right;
+    font-weight:bold;
+  }
+
+  .researcher-role {
+    font-size:9px;
+    opacity:0.7;
+    margin-top:2px;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar {width:10px;}
+  ::-webkit-scrollbar-track {background:rgba(0,10,5,0.5);border-radius:5px;}
+  ::-webkit-scrollbar-thumb {background:#00ff41;border-radius:5px;}
+  ::-webkit-scrollbar-thumb:hover {background:#00ff41ee;box-shadow:0 0 10px #00ff41;}
+</style>
+</head>
+<body>
+
+<canvas id="shader"></canvas>
+
+<div id="container">
+  <div id="header">
+    <h1>⚠ P(DOOM) DASHBOARD ⚠</h1>
+    <div>
+      <div id="status">EXPONENTIAL ESCALATION DETECTED</div>
+      <div id="timestamp"></div>
+    </div>
+  </div>
+
+  <!-- Test Controls -->
+  <div id="testControls">
+    <div class="control-title">⚙ TEST CONTROLS</div>
+    <div class="slider-group">
+      <div class="slider-label">
+        <span>Current Year:</span>
+        <span class="slider-value" id="yearValue">2025.0</span>
+      </div>
+      <input type="range" id="yearSlider" min="2020" max="2032" step="0.1" value="2025.8">
+    </div>
+    <div class="slider-group">
+      <div class="slider-label">
+        <span>P(doom):</span>
+        <span class="slider-value" id="pdoomValue">12.1%</span>
+      </div>
+      <div style="font-size:9px;opacity:0.7;margin-top:5px;">Computed from exponential model</div>
+    </div>
+  </div>
+
+  <div id="mainGrid">
+    <!-- Left Panel: Current Status -->
+    <div id="leftPanel" class="panel">
+      <div class="panel-title">CURRENT STATUS</div>
+
+      <div class="metric-group warning">
+        <div class="metric-label">P(doom) Estimate</div>
+        <div class="metric-value" id="currentPdoom">12.1%</div>
+        <div class="metric-subtext">Expert consensus median</div>
+      </div>
+
+      <div class="metric-group">
+        <div class="metric-label">Latest Frontier Model</div>
+        <div class="metric-value">GPT-5</div>
+        <div class="metric-subtext">Released Aug 7, 2025</div>
+      </div>
+
+      <div class="metric-group">
+        <div class="metric-label">Training Compute</div>
+        <div class="metric-value">5.0×10²⁶</div>
+        <div class="metric-subtext">FLOPS (1592× GPT-3)</div>
+      </div>
+
+      <div class="metric-group warning">
+        <div class="metric-label">Compute Doubling</div>
+        <div class="metric-value">5.6 mo</div>
+        <div class="metric-subtext">Exponential growth rate</div>
+      </div>
+
+      <div class="metric-group">
+        <div class="metric-label">Models Tracked</div>
+        <div class="metric-value">16</div>
+        <div class="metric-subtext">OpenAI, Google, Meta, Anthropic</div>
+      </div>
+
+      <div class="metric-group critical">
+        <div class="metric-label">2027 Projection</div>
+        <div class="metric-value" id="projection2027">36%</div>
+        <div class="metric-subtext">If scaling continues</div>
+      </div>
+
+      <div class="metric-group critical">
+        <div class="metric-label">2029 Critical</div>
+        <div class="metric-value">82%</div>
+        <div class="metric-subtext">Near-certainty threshold</div>
+      </div>
+
+      <div class="metric-group">
+        <div class="metric-label">AGI Timeline (Median)</div>
+        <div class="metric-value">2027-2030</div>
+        <div class="metric-subtext">AI researcher survey</div>
+      </div>
+    </div>
+
+    <!-- Center: Main Chart -->
+    <div id="graphContainer">
+      <div id="graph"></div>
+    </div>
+
+    <!-- Right Panel: Researchers & Cat -->
+    <div id="rightPanel" class="panel">
+      <div class="panel-title">EXPERT ESTIMATES</div>
+
+      <div class="researcher-item critical">
+        <div class="researcher-name">Eliezer Yudkowsky</div>
+        <div class="researcher-estimate critical">>95%</div>
+        <div class="researcher-role">MIRI Founder • Alignment unsolvable</div>
+      </div>
+
+      <div class="researcher-item critical">
+        <div class="researcher-name">Roman Yampolskiy</div>
+        <div class="researcher-estimate critical">99.9%</div>
+        <div class="researcher-role">AI Safety Scientist</div>
+      </div>
+
+      <div class="researcher-item warning">
+        <div class="researcher-name">Yoshua Bengio</div>
+        <div class="researcher-estimate warning">50%</div>
+        <div class="researcher-role">Nobel Laureate • MILA Director</div>
+      </div>
+
+      <div class="researcher-item warning">
+        <div class="researcher-name">Dario Amodei</div>
+        <div class="researcher-estimate warning">25%</div>
+        <div class="researcher-role">Anthropic CEO</div>
+      </div>
+
+      <div class="researcher-item warning">
+        <div class="researcher-name">Geoffrey Hinton</div>
+        <div class="researcher-estimate warning">10-20%</div>
+        <div class="researcher-role">Nobel Laureate • "Godfather of AI"</div>
+      </div>
+
+      <div class="researcher-item">
+        <div class="researcher-name">Survey Median (2023)</div>
+        <div class="researcher-estimate">5%</div>
+        <div class="researcher-role">1000+ AI Researchers</div>
+      </div>
+
+      <div class="researcher-item">
+        <div class="researcher-name">Yann LeCun</div>
+        <div class="researcher-estimate"><0.01%</div>
+        <div class="researcher-role">Meta Chief AI Scientist</div>
+      </div>
+
+      <!-- Cat Cam -->
+      <div id="catCam">
+        <div class="metric-label" style="text-align:center;margin-bottom:10px;">🐱 OFFICE CAT CAM</div>
+        <img id="catImage" src="/home/laptop/Documents/Projects/ai-sandbox/pdoom1/assets/images/pdoom1 office cat default png.png" alt="Office Cat">
+        <div id="catStatus">Status: Monitoring Existential Risk</div>
+      </div>
+
+      <!-- System Log -->
+      <div style="margin-top:18px;">
+        <div class="metric-label" style="margin-bottom:10px;">📊 SYSTEM LOG</div>
+        <div id="logContainer">
+          <div class="log-entry log-warn"><span class="log-time">[22:45:12]</span> P(doom) updated: 12.1%</div>
+          <div class="log-entry log-error"><span class="log-time">[22:34:07]</span> Compute threshold EXCEEDED</div>
+          <div class="log-entry"><span class="log-time">[22:18:43]</span> GPT-5 training completed</div>
+          <div class="log-entry"><span class="log-time">[22:03:21]</span> Doubling time: 5.6 months</div>
+          <div class="log-entry log-warn"><span class="log-time">[21:52:08]</span> Safety margin LOW</div>
+          <div class="log-entry"><span class="log-time">[21:40:15]</span> 16 frontier models tracked</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ========== Dynamic Shader Background (Green→Red as P(doom) increases) ========== */
+const shaderCanvas = document.getElementById('shader');
+const gl = shaderCanvas.getContext('webgl');
+
+function resizeShader() {
+  shaderCanvas.width = window.innerWidth;
+  shaderCanvas.height = window.innerHeight;
+  if(gl) gl.viewport(0, 0, shaderCanvas.width, shaderCanvas.height);
+}
+window.addEventListener('resize', resizeShader);
+resizeShader();
+
+const vsSource = `attribute vec2 pos; void main() {gl_Position = vec4(pos, 0.0, 1.0);}`;
+const fsSource = `
+precision highp float;
+uniform vec2 resolution;
+uniform float time;
+uniform float pdoomLevel; // 0.0 to 1.0
+
+float hash(vec2 p) {
+  p = fract(p * vec2(123.45, 678.90));
+  p += dot(p, p + 34.56);
+  return fract(p.x * p.y);
+}
+
+vec2 voronoi(vec2 p) {
+  vec2 n = floor(p), f = fract(p);
+  float minDist = 10.0;
+  for(int j = -1; j <= 1; j++) {
+    for(int i = -1; i <= 1; i++) {
+      vec2 neighbor = vec2(float(i), float(j));
+      vec2 point = hash(n + neighbor) * vec2(sin(time * 0.25), cos(time * 0.25 + 3.14)) * 0.4;
+      float dist = length(neighbor + point - f);
+      minDist = min(minDist, dist);
+    }
+  }
+  return vec2(minDist, 0);
+}
+
+float neuralConnections(vec2 p, float t) {
+  vec2 vor = voronoi(p * 3.5);
+  float neuron = smoothstep(0.18, 0.12, vor.x) * (0.3 + 0.2 * sin(t * 2.0));
+  vec2 grid = fract(p * 6.0) - 0.5;
+  float axonH = smoothstep(0.008, 0.0, abs(grid.y + sin(p.x * 2.5 + t * 0.5) * 0.25)) * 0.25;
+  float axonV = smoothstep(0.008, 0.0, abs(grid.x + sin(p.y * 2.5 + t * 0.6) * 0.25)) * 0.25;
+  return neuron * 1.2 + axonH + axonV;
+}
+
+void main() {
+  vec2 uv = gl_FragCoord.xy / resolution;
+  vec2 p = uv * 2.0 - 1.0;
+  p.x *= resolution.x / resolution.y;
+
+  float t = time * 0.3;
+  float neural = neuralConnections(p, t);
+
+  // Color transition: Green (low pdoom) → Orange → Red (high pdoom)
+  vec3 safeColor = vec3(0.0, 1.0, 0.25);     // Matrix green
+  vec3 warnColor = vec3(1.0, 0.42, 0.21);    // Orange (#ff6b35)
+  vec3 criticalColor = vec3(1.0, 0.0, 0.0);  // Red
+
+  vec3 baseColor;
+  if(pdoomLevel < 0.3) {
+    // 0-30%: Green to Orange
+    baseColor = mix(safeColor, warnColor, pdoomLevel / 0.3);
+  } else {
+    // 30-100%: Orange to Red
+    baseColor = mix(warnColor, criticalColor, (pdoomLevel - 0.3) / 0.7);
+  }
+
+  // Apply neural pattern
+  vec3 darkBase = baseColor * 0.15;
+  vec3 brightBase = baseColor * 0.5;
+  vec3 color = mix(darkBase, brightBase, neural * 0.6);
+  color = mix(color, baseColor, neural * neural * 0.4);
+
+  // Intensity modulation
+  color *= neural * 0.3;
+
+  // Vignette
+  color *= smoothstep(1.5, 0.3, length(p));
+
+  // Overall dimming for subtlety
+  color *= 0.35;
+
+  // Add danger pulse at high pdoom
+  if(pdoomLevel > 0.5) {
+    float pulse = 0.5 + 0.5 * sin(t * 3.0);
+    color += criticalColor * pulse * (pdoomLevel - 0.5) * 0.1;
+  }
+
+  gl_FragColor = vec4(color, 1.0);
+}
+`;
+
+function compileShader(source, type) {
+  const shader = gl.createShader(type);
+  gl.shaderSource(shader, source);
+  gl.compileShader(shader);
+  return shader;
+}
+
+const vs = compileShader(vsSource, gl.VERTEX_SHADER);
+const fs = compileShader(fsSource, gl.FRAGMENT_SHADER);
+const program = gl.createProgram();
+gl.attachShader(program, vs);
+gl.attachShader(program, fs);
+gl.linkProgram(program);
+gl.useProgram(program);
+
+const positions = new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]);
+const buffer = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW);
+
+const posLoc = gl.getAttribLocation(program, 'pos');
+gl.enableVertexAttribArray(posLoc);
+gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+
+const resolutionLoc = gl.getUniformLocation(program, 'resolution');
+const timeLoc = gl.getUniformLocation(program, 'time');
+const pdoomLevelLoc = gl.getUniformLocation(program, 'pdoomLevel');
+
+let startTime = Date.now();
+let currentPdoomLevel = 0.121; // 12.1%
+
+function animateShader() {
+  const time = (Date.now() - startTime) * 0.001;
+  gl.uniform2f(resolutionLoc, shaderCanvas.width, shaderCanvas.height);
+  gl.uniform1f(timeLoc, time);
+  gl.uniform1f(pdoomLevelLoc, currentPdoomLevel);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  requestAnimationFrame(animateShader);
+}
+animateShader();
+
+/* ========== AI Models Data ========== */
+const aiModels = [
+  {name: 'GPT-1', company: 'OpenAI', date: '2018-06-11', flops: 1e21},
+  {name: 'GPT-2', company: 'OpenAI', date: '2019-02-14', flops: 2.8e22},
+  {name: 'GPT-3', company: 'OpenAI', date: '2020-06-11', flops: 3.14e23},
+  {name: 'GPT-4', company: 'OpenAI', date: '2023-03-14', flops: 2.15e25},
+  {name: 'GPT-4o', company: 'OpenAI', date: '2024-05-13', flops: 5e25},
+  {name: 'o1', company: 'OpenAI', date: '2024-09-12', flops: 1e26},
+  {name: 'o3', company: 'OpenAI', date: '2024-12-20', flops: 1.5e26},
+  {name: 'GPT-4.5', company: 'OpenAI', date: '2025-02-27', flops: 3e26},
+  {name: 'GPT-4.1', company: 'OpenAI', date: '2025-04-14', flops: 3.5e26},
+  {name: 'GPT-5', company: 'OpenAI', date: '2025-08-07', flops: 5e26},
+  {name: 'PaLM', company: 'Google', date: '2022-04-01', flops: 2.56e24},
+  {name: 'Gemini 1.0', company: 'Google', date: '2023-12-06', flops: 5e25},
+  {name: 'Gemini 2.5', company: 'Google', date: '2025-02-01', flops: 5.6e25},
+  {name: 'LLaMA 3.1', company: 'Meta', date: '2024-07-23', flops: 3.8e25},
+  {name: 'Claude 3', company: 'Anthropic', date: '2024-03-04', flops: 1e25}
+];
+
+const baseDate = new Date('2018-01-01');
+const modelData = aiModels.map(m => {
+  const date = new Date(m.date);
+  const yearFraction = 2018 + (date - baseDate) / (1000 * 60 * 60 * 24 * 365.25);
+  return {...m, yearFraction};
+});
+
+// Compute curve
+const gpt3 = modelData.find(m => m.name === 'GPT-3');
+const gpt4 = modelData.find(m => m.name === 'GPT-4');
+const b = (Math.log(gpt4.flops) - Math.log(gpt3.flops)) / (gpt4.yearFraction - gpt3.yearFraction);
+const a = gpt3.flops / Math.exp(b * gpt3.yearFraction);
+
+const computeCurve = [];
+for(let year = 2018; year <= 2030; year += 0.05) {
+  computeCurve.push({year, flops: a * Math.exp(b * year)});
+}
+
+// P(doom) curve - exponential until 100%
+function pdoomFunc(year) {
+  if(year < 2020) return 0.01;
+  const rawValue = 0.02 * Math.exp(0.4 * (year - 2020));
+  return Math.min(rawValue, 1.0);
+}
+
+const pdoomCurve = [];
+for(let year = 2020; year <= 2031; year += 0.05) {
+  const pdoom = pdoomFunc(year);
+  pdoomCurve.push({year, pdoom});
+  if(pdoom >= 0.999) break;
+}
+
+/* ========== Plot ========== */
+function updatePlot() {
+  const trace1 = {
+    x: pdoomCurve.map(p => p.year),
+    y: pdoomCurve.map(p => p.pdoom * 100),
+    type: 'scatter',
+    mode: 'lines',
+    name: 'P(doom)',
+    yaxis: 'y',
+    line: {
+      color: '#ff6b35',
+      width: 5
+    },
+    fill: 'tozeroy',
+    fillcolor: 'rgba(255,107,53,0.15)',
+    hovertemplate: 'P(doom): %{y:.1f}%<extra></extra>'
+  };
+
+  const trace2 = {
+    x: computeCurve.map(p => p.year),
+    y: computeCurve.map(p => p.flops),
+    type: 'scatter',
+    mode: 'lines',
+    name: 'Compute',
+    yaxis: 'y2',
+    line: {color: '#00ff41', width: 3, dash: 'dot'},
+    hovertemplate: '%{y:.2e} FLOPS<extra></extra>'
+  };
+
+  const trace3 = {
+    x: modelData.map(m => m.yearFraction),
+    y: modelData.map(m => m.flops),
+    type: 'scatter',
+    mode: 'markers',
+    name: 'Models',
+    yaxis: 'y2',
+    marker: {size: 9, color: '#00ff41', line: {color: '#000', width: 2}},
+    text: modelData.map(m => `${m.name} (${m.company})`),
+    hovertemplate: '<b>%{text}</b><br>%{y:.2e} FLOPS<extra></extra>'
+  };
+
+  const layout = {
+    xaxis: {
+      title: {text: 'Year', font: {family: 'Courier New', size: 14, color: '#00ff41'}},
+      gridcolor: '#00ff4133',
+      tickfont: {family: 'Courier New', size: 12, color: '#00ff41'},
+      range: [2019.5, 2031]
+    },
+    yaxis: {
+      title: {text: 'P(doom) - Existential Risk (%)', font: {family: 'Courier New', size: 14, color: '#ff6b35'}},
+      gridcolor: '#ff6b3533',
+      tickfont: {family: 'Courier New', size: 12, color: '#ff6b35'},
+      side: 'left',
+      range: [0, 105],
+      ticksuffix: '%'
+    },
+    yaxis2: {
+      title: {text: 'Training Compute (FLOPS)', font: {family: 'Courier New', size: 13, color: '#00ff41'}},
+      tickfont: {family: 'Courier New', size: 11, color: '#00ff41'},
+      overlaying: 'y',
+      side: 'right',
+      type: 'log',
+      exponentformat: 'e'
+    },
+    plot_bgcolor: 'rgba(0,0,0,0)',
+    paper_bgcolor: 'rgba(0,0,0,0)',
+    font: {family: 'Courier New', color: '#00ff41'},
+    legend: {
+      x: 0.02, y: 0.98,
+      font: {family: 'Courier New', size: 11, color: '#00ff41'},
+      bgcolor: 'rgba(0,0,0,0.9)',
+      bordercolor: '#00ff41',
+      borderwidth: 2
+    },
+    margin: {l: 80, r: 90, t: 20, b: 60},
+    annotations: [
+      {
+        x: 2020.5, y: 2,
+        text: 'GPT-3 baseline<br>~2% P(doom)',
+        showarrow: true, arrowhead: 2, ax: -60, ay: -50,
+        font: {size: 10, color: '#00ff41'},
+        bgcolor: 'rgba(0,0,0,0.95)',
+        bordercolor: '#00ff41',
+        borderwidth: 2
+      },
+      {
+        x: 2025.8, y: pdoomFunc(2025.8) * 100,
+        text: '<b>NOW:</b> ~' + (pdoomFunc(2025.8) * 100).toFixed(1) + '% P(doom)',
+        showarrow: true, arrowhead: 2, ax: -70, ay: 50,
+        font: {size: 11, color: '#ff6b35'},
+        bgcolor: 'rgba(0,0,0,0.95)',
+        bordercolor: '#ff6b35',
+        borderwidth: 3
+      },
+      {
+        x: 2027, y: pdoomFunc(2027) * 100,
+        text: '<b style="color:#f00;">2027: ' + (pdoomFunc(2027) * 100).toFixed(0) + '%</b>',
+        showarrow: true, arrowhead: 2, ax: -70, ay: -40,
+        font: {size: 11, color: '#f00'},
+        bgcolor: 'rgba(30,0,0,0.95)',
+        bordercolor: '#f00',
+        borderwidth: 3
+      },
+      {
+        x: 2029, y: Math.min(pdoomFunc(2029) * 100, 100),
+        text: '<b style="color:#f00;">CRITICAL: ' + (pdoomFunc(2029) * 100).toFixed(0) + '%</b>',
+        showarrow: true, arrowhead: 2, ax: 0, ay: -70,
+        font: {size: 12, color: '#f00'},
+        bgcolor: 'rgba(50,0,0,0.95)',
+        bordercolor: '#f00',
+        borderwidth: 4
+      }
+    ]
+  };
+
+  Plotly.newPlot('graph', [trace1, trace2, trace3], layout, {responsive: true, displayModeBar: false});
+}
+
+updatePlot();
+
+/* ========== Interactive Controls ========== */
+const yearSlider = document.getElementById('yearSlider');
+yearSlider.addEventListener('input', (e) => {
+  const year = parseFloat(e.target.value);
+  const pdoom = pdoomFunc(year);
+
+  document.getElementById('yearValue').textContent = year.toFixed(1);
+  document.getElementById('pdoomValue').textContent = (pdoom * 100).toFixed(1) + '%';
+  document.getElementById('currentPdoom').textContent = (pdoom * 100).toFixed(1) + '%';
+  document.getElementById('projection2027').textContent = (pdoomFunc(2027) * 100).toFixed(0) + '%';
+
+  // Update shader color
+  currentPdoomLevel = pdoom;
+
+  updatePlot();
+});
+
+/* ========== Timestamp ========== */
+function updateTimestamp() {
+  const now = new Date();
+  document.getElementById('timestamp').textContent = now.toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
+}
+updateTimestamp();
+setInterval(updateTimestamp, 1000);
+
+/* ========== Cat Cam ========== */
+const catImages = [
+  '/home/laptop/Documents/Projects/ai-sandbox/pdoom1/assets/images/pdoom1 office cat default png.png',
+  '/home/laptop/Documents/Projects/ai-sandbox/pdoom1/assets/images/small doom caat.png',
+  '/home/laptop/Documents/Projects/ai-sandbox/pdoom1/assets/images/20250915_0948_Doom\'s Cat Throne_simple_compose_01k559ztmqefybe80mbvyqgyvd.png'
+];
+let catIndex = 0;
+setInterval(() => {
+  catIndex = (catIndex + 1) % catImages.length;
+  document.getElementById('catImage').src = catImages[catIndex];
+  const statuses = [
+    'Observing exponential trends...',
+    'Concerned about alignment',
+    'Monitoring compute scaling',
+    'Calculating escape routes',
+    'Reviewing safety protocols',
+    'Worried meow detected'
+  ];
+  document.getElementById('catStatus').textContent = `Status: ${statuses[Math.floor(Math.random() * statuses.length)]}`;
+}, 7000);
+</script>
+</body>
+</html>

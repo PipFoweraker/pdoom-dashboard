@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>OpenAI Compute - Relative to GPT-3</title>
+<style>
+  body {margin:0;padding:20px;background:#0a0a0a;color:#00ff41;font-family:'Courier New',monospace;}
+  #chart {width:95%;max-width:1400px;height:600px;margin:20px auto;
+          background:rgba(10,20,10,0.85);border:2px solid #00ff41;
+          border-radius:10px;box-shadow:0 0 30px rgba(0,255,65,0.5);padding:20px;}
+  #title {text-align:center;font-size:24px;margin-bottom:10px;text-shadow:0 0 10px #00ff41;}
+  #subtitle {text-align:center;font-size:12px;margin-bottom:20px;opacity:0.7;}
+</style>
+<script src="https://cdn.plot.ly/plotly-2.26.0.min.js"></script>
+</head>
+<body>
+
+<div id="chart">
+  <div id="title">OpenAI Compute Progress: Relative to GPT-3</div>
+  <div id="subtitle">GPT-3 (June 2020) = 1.0x baseline | Shows multipliers</div>
+  <div id="graph" style="width:100%;height:500px;"></div>
+</div>
+
+<script>
+const openaiModels = [
+  {name: 'GPT-1', date: '2018-06-11', flops: 1e21},
+  {name: 'GPT-2', date: '2019-02-14', flops: 2.8e22},
+  {name: 'GPT-3', date: '2020-06-11', flops: 3.14e23},
+  {name: 'GPT-4', date: '2023-03-14', flops: 2.15e25},
+  {name: 'GPT-4o', date: '2024-05-13', flops: 5e25},
+  {name: 'o1', date: '2024-09-12', flops: 1e26},
+  {name: 'GPT-4.5', date: '2025-02-27', flops: 3e26},
+  {name: 'GPT-5', date: '2025-08-07', flops: 5e26}
+];
+
+const gpt3Flops = 3.14e23;
+const baseDate = new Date('2018-01-01');
+
+const modelData = openaiModels.map(m => {
+  const date = new Date(m.date);
+  const yearFraction = 2018 + (date - baseDate) / (1000 * 60 * 60 * 24 * 365.25);
+  const relative = m.flops / gpt3Flops;
+  return {...m, yearFraction, relative};
+});
+
+// Exponential curve relative to GPT-3
+const gpt3 = modelData.find(m => m.name === 'GPT-3');
+const gpt4 = modelData.find(m => m.name === 'GPT-4');
+const b = Math.log(gpt4.relative / gpt3.relative) / (gpt4.yearFraction - gpt3.yearFraction);
+const a = gpt3.relative / Math.exp(b * gpt3.yearFraction);
+
+const curvePoints = [];
+for(let year = 2018; year <= 2026; year += 0.05) {
+  const relative = a * Math.exp(b * year);
+  curvePoints.push({year, relative});
+}
+
+const trace1 = {
+  x: curvePoints.map(p => p.year),
+  y: curvePoints.map(p => p.relative),
+  type: 'scatter',
+  mode: 'lines',
+  name: 'Exponential Growth',
+  line: {color: '#00ff41', width: 3},
+  hovertemplate: '%{y:.1f}× GPT-3<extra></extra>'
+};
+
+const trace2 = {
+  x: modelData.map(m => m.yearFraction),
+  y: modelData.map(m => m.relative),
+  type: 'scatter',
+  mode: 'markers+text',
+  name: 'Models',
+  marker: {size: 14, color: '#00ff41', line: {color: '#0a0a0a', width: 2}},
+  text: modelData.map(m => m.name),
+  textposition: 'top center',
+  textfont: {family: 'Courier New', size: 12, color: '#00ff41'},
+  hovertemplate: '<b>%{text}</b><br>%{y:.1f}× GPT-3 compute<br>(%{customdata:.2e} FLOPS)<extra></extra>',
+  customdata: modelData.map(m => m.flops)
+};
+
+// Reference line at GPT-3
+const trace3 = {
+  x: [2017.5, 2026],
+  y: [1, 1],
+  type: 'scatter',
+  mode: 'lines',
+  name: 'GPT-3 Baseline',
+  line: {color: '#00ff4166', width: 2, dash: 'dash'},
+  hoverinfo: 'skip'
+};
+
+const layout = {
+  xaxis: {
+    title: {text: 'Year', font: {family: 'Courier New', size: 14, color: '#00ff41'}},
+    gridcolor: '#00ff4133',
+    tickfont: {family: 'Courier New', size: 11, color: '#00ff41'},
+    range: [2017.5, 2026]
+  },
+  yaxis: {
+    title: {text: 'Compute Relative to GPT-3 (multiplier)', font: {family: 'Courier New', size: 14, color: '#00ff41'}},
+    type: 'log',
+    gridcolor: '#00ff4133',
+    tickfont: {family: 'Courier New', size: 11, color: '#00ff41'}
+  },
+  plot_bgcolor: 'rgba(0,0,0,0)',
+  paper_bgcolor: 'rgba(0,0,0,0)',
+  font: {family: 'Courier New', color: '#00ff41'},
+  legend: {
+    x: 0.02, y: 0.98,
+    font: {family: 'Courier New', size: 12, color: '#00ff41'},
+    bgcolor: 'rgba(10,20,10,0.7)',
+    bordercolor: '#00ff41',
+    borderwidth: 1
+  },
+  margin: {l: 100, r: 40, t: 20, b: 60},
+  annotations: [
+    {
+      x: 2025,
+      y: 1592,
+      text: 'GPT-5: ~1592× more compute than GPT-3',
+      showarrow: true,
+      arrowhead: 2,
+      ax: -80,
+      ay: -40,
+      font: {size: 10, color: '#00ff41'},
+      bgcolor: 'rgba(10,20,10,0.9)',
+      bordercolor: '#00ff41',
+      borderwidth: 1
+    },
+    {
+      x: 2023,
+      y: 68,
+      text: 'GPT-4: ~68× more compute',
+      showarrow: true,
+      arrowhead: 2,
+      ax: 60,
+      ay: -40,
+      font: {size: 10, color: '#00ff41'},
+      bgcolor: 'rgba(10,20,10,0.9)',
+      bordercolor: '#00ff41',
+      borderwidth: 1
+    }
+  ]
+};
+
+Plotly.newPlot('graph', [trace3, trace1, trace2], layout, {responsive: true, displayModeBar: false});
+</script>
+</body>
+</html>

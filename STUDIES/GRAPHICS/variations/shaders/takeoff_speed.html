@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Takeoff Speed Shader</title>
+<style>
+  * {margin:0;padding:0;}
+  body {background:#000;overflow:hidden;}
+  canvas {display:block;width:100vw;height:100vh;}
+  #info {
+    position:absolute;
+    top:20px;
+    left:20px;
+    color:#00ff41;
+    font-family:'Courier New',monospace;
+    font-size:20px;
+    text-shadow:0 0 10px #00ff41,0 0 20px #00ff41;
+    pointer-events:none;
+  }
+  #speed {
+    position:absolute;
+    bottom:20px;
+    left:20px;
+    color:#ffffff;
+    font-family:'Courier New',monospace;
+    font-size:14px;
+    text-shadow:0 0 5px #000;
+    pointer-events:none;
+  }
+</style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+<div id="info">TAKEOFF SPEED</div>
+<div id="speed">Acceleration: <span id="accelValue">1.0x</span></div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const gl = canvas.getContext('webgl');
+
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  if(gl) gl.viewport(0, 0, canvas.width, canvas.height);
+}
+window.addEventListener('resize', resize);
+resize();
+
+const vs = `attribute vec2 pos; void main() {gl_Position = vec4(pos, 0.0, 1.0);}`;
+const fs = `
+precision highp float;
+uniform vec2 resolution;
+uniform float time;
+
+// Slow takeoff - gradual, observable progress
+float slowTakeoff(vec2 p, float t) {
+  float dist = length(p);
+  // Linear progression
+  float frontier = t * 0.3;
+  float frontierDist = abs(dist - frontier);
+  return smoothstep(0.15, 0.0, frontierDist);
+}
+
+// Fast takeoff - sudden, discontinuous jump
+float fastTakeoff(vec2 p, float t) {
+  float dist = length(p);
+  // Exponential explosion after threshold
+  float threshold = 5.0;
+  float progress = max(0.0, t - threshold);
+  float frontier = exp(progress * 0.5) - 1.0;
+  float frontierDist = abs(dist - frontier);
+  return smoothstep(0.2, 0.0, frontierDist) * step(threshold, t);
+}
+
+// Capability levels visualization
+float capabilityBands(vec2 p, float t) {
+  float dist = length(p);
+
+  // Time determines which regime we're in
+  float regime = smoothstep(4.0, 6.0, t);
+
+  float bands;
+  if(regime < 0.5) {
+    // Slow regime: evenly spaced bands
+    bands = sin(dist * 5.0 - t * 0.5);
+  } else {
+    // Fast regime: bands compress rapidly
+    float compression = 1.0 + (regime - 0.5) * 20.0;
+    bands = sin(dist * compression - t * 3.0);
+  }
+
+  return smoothstep(0.5, 0.7, bands) * 0.3;
+}
+
+// Timeline markers showing progress rate
+float timelineMarkers(vec2 p, float t) {
+  float regime = smoothstep(4.0, 6.0, t);
+
+  // Vertical lines showing time intervals
+  float spacing = regime < 0.5 ? 0.5 : 0.1; // Compress time in fast regime
+  float marker = abs(fract(p.x / spacing) - 0.5);
+  return smoothstep(0.05, 0.0, marker) * 0.4;
+}
+
+// Acceleration indicator
+float accelerationField(vec2 p, float t) {
+  // Speed lines showing acceleration
+  float angle = atan(p.y, p.x);
+  float radius = length(p);
+
+  float regime = smoothstep(4.0, 6.0, t);
+  float speed = 1.0 + regime * 10.0;
+
+  float lines = sin(angle * 12.0 + radius * 5.0 - t * speed);
+  return smoothstep(0.8, 0.9, lines) * regime * 0.3;
+}
+
+void main() {
+  vec2 uv = gl_FragCoord.xy / resolution;
+  vec2 p = (uv - 0.5) * 3.0;
+  p.x *= resolution.x / resolution.y;
+
+  float t = time * 0.3;
+
+  // Determine which regime we're in
+  float regime = smoothstep(4.0, 6.0, t);
+
+  // Combine takeoff patterns
+  float slow = slowTakeoff(p, t);
+  float fast = fastTakeoff(p, t);
+  float bands = capabilityBands(p, t);
+  float markers = timelineMarkers(p, t);
+  float accel = accelerationField(p, t);
+
+  // Mix between slow and fast takeoff
+  float takeoff = mix(slow, fast, regime);
+
+  // Color progression
+  vec3 slowColor = vec3(0.0, 1.0, 0.25);     // Green - controlled
+  vec3 transitionColor = vec3(1.0, 0.42, 0.21);  // Orange - critical
+  vec3 fastColor = vec3(1.0, 0.0, 0.0);      // Red - runaway
+  vec3 blowout = vec3(1.5, 1.5, 1.5);        // White - incomprehensible
+
+  vec3 baseColor;
+  if(regime < 0.3) {
+    baseColor = slowColor;
+  } else if(regime < 0.7) {
+    baseColor = mix(slowColor, transitionColor, (regime - 0.3) / 0.4);
+  } else if(regime < 0.9) {
+    baseColor = mix(transitionColor, fastColor, (regime - 0.7) / 0.2);
+  } else {
+    baseColor = mix(fastColor, blowout, (regime - 0.9) / 0.1);
+  }
+
+  // Combine all elements
+  float combined = takeoff + bands + markers + accel;
+
+  vec3 color = baseColor * combined;
+
+  // Add warning flashes in fast regime
+  if(regime > 0.5) {
+    float flash = sin(t * 15.0 * regime);
+    flash = smoothstep(0.9, 1.0, flash);
+    color += fastColor * flash * regime;
+  }
+
+  // Distance fade
+  float fade = exp(-length(p) * 0.2);
+  color *= (0.4 + fade * 0.6);
+
+  gl_FragColor = vec4(color, 1.0);
+}
+`;
+
+function compileShader(source, type) {
+  const shader = gl.createShader(type);
+  gl.shaderSource(shader, source);
+  gl.compileShader(shader);
+  if(!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+    console.error(gl.getShaderInfoLog(shader));
+  }
+  return shader;
+}
+
+const vertShader = compileShader(vs, gl.VERTEX_SHADER);
+const fragShader = compileShader(fs, gl.FRAGMENT_SHADER);
+const program = gl.createProgram();
+gl.attachShader(program, vertShader);
+gl.attachShader(program, fragShader);
+gl.linkProgram(program);
+gl.useProgram(program);
+
+const positions = new Float32Array([-1,-1, 1,-1, -1,1, 1,1]);
+const buffer = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW);
+
+const posLoc = gl.getAttribLocation(program, 'pos');
+gl.enableVertexAttribArray(posLoc);
+gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+
+const resLoc = gl.getUniformLocation(program, 'resolution');
+const timeLoc = gl.getUniformLocation(program, 'time');
+
+const startTime = Date.now();
+
+function render() {
+  const time = (Date.now() - startTime) * 0.001;
+  const regime = Math.min(Math.max((time * 0.3 - 4.0) / 2.0, 0), 1);
+  const accel = 1.0 + regime * 10.0;
+
+  document.getElementById('accelValue').textContent = accel.toFixed(1) + 'x';
+
+  gl.uniform2f(resLoc, canvas.width, canvas.height);
+  gl.uniform1f(timeLoc, time);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  requestAnimationFrame(render);
+}
+render();
+</script>
+</body>
+</html>
