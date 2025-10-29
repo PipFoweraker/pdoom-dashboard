@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>pDOOM – Mayhem Matrix</title>
+<script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+<style>
+  body{margin:0;background:#000;color:#0f0;font-family:Consolas,monospace;overflow:hidden}
+  #rain{position:fixed;inset:0;z-index:-1}
+  .col{position:absolute;top:0;width:1ch;animation:fall 12s linear infinite;font-size:1rem;opacity:.8}
+  @keyframes fall{0%{transform:translateY(-100%)}100%{transform:translateY(120%)}}
+  #graph{width:100vw;height:85vh;position:relative}
+  #slog{position:absolute;top:5%;left:50%;transform:translateX(-50%);font-size:1.2rem;color:#a0ff7a;animation:pulse 6s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+  #align{position:absolute;bottom:5%;left:5%;width:30%;height:20px;background:#111;border:1px solid #0f0;display:flex}
+  #fill{height:100%;background:#0f0;width:0%;transition:.5s}
+  #chan{position:absolute;bottom:5%;right:5%;font-size:.9rem;color:#ff6600;border:1px solid #ff6600;padding:.4rem .8rem;background:#111}
+  .ctrl{display:flex;flex-wrap:wrap;gap:1rem;padding:1rem;background:#111;border-top:2px solid #444}
+  .ctrl label{display:flex;flex-direction:column;font-size:.9rem;color:#0f0}
+  input{width:200px}
+</style>
+</head>
+<body>
+
+<div id="rain"></div>
+<div id="graph"></div>
+<div id="slog">“CODE IS DESTINY”<br>“ALIGN OR PERISH”</div>
+<div id="align"><div id="fill"></div></div>
+<div id="chan">DATA‑CHANNEL: AI‑ALIGNMENT ↔ DOOM</div>
+
+<div class="ctrl">
+  <label>Exponent (b)<input type="range" id="b" min=".1" max="5" step=".01" value="2"></label>
+  <label>X‑offset (Δx)<input type="range" id="dx" min="-5" max="5" step=".01" value="0"></label>
+  <label>Y‑offset (Δy)<input type="range" id="dy" min="-0.5" max="0.5" step=".01" value="0"></label>
+  <label>Noise<input type="range" id="n" min="0" max=".05" step=".001" value=".01"></label>
+</div>
+
+<script>
+/* ── Matrix rain ── */
+for(let i=0;i<Math.floor(innerWidth/10);i++){
+  const c=document.createElement('div');c.className='col';c.style.left=i*10+'px';
+  c.style.animationDuration=8+Math.random()*4+'s';
+  c.textContent=Array.from({length:30},()=>String.fromCharCode(0x30A0+Math.random()*96)).join('\n');
+  rain.appendChild(c);
+}
+
+/* ── Parametric curve ── */
+const b=document.getElementById('b'),dx=document.getElementById('dx'),dy=document.getElementById('dy'),n=document.getElementById('n');
+const g=document.getElementById('graph'),fill=document.getElementById('fill');
+
+function rand(){let u=0,v=0;while(u===0)u=Math.random();while(v===0)v=Math.random();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);}
+
+function draw(){
+  const B=parseFloat(b.value),DX=parseFloat(dx.value),DY=parseFloat(dy.value),N=parseFloat(n.value);
+  const C=1-Math.pow(2027,B);                     // force (2027,1)
+  const pts={x:[],y:[]};
+  for(let i=0;i<=2000;i++){
+    const t=i/2000*2*Math.PI;
+    const X=2020+7*Math.sin(t)+DX;               // folds, hits 2027 at t=π/2
+    let Y=Math.pow(X,B)+C+DY;
+    Y=Math.max(0,Math.min(1,Y+N*rand()));
+    pts.x.push(X);pts.y.push(Y);
+  }
+  Plotly.react(g,[{
+    x:pts.x,y:pts.y,mode:'lines',
+    line:{width:4,color:'rgba(0,255,0,0.9)',shape:'spline'}
+  }],{title:{text:'<b>pDOOM – MAYHEM</b>',font:{color:'#0f0',size:28},x:0.5},
+    paper_bgcolor:'#000',plot_bgcolor:'#000',
+    xaxis:{title:{text:'Year',font:{color:'#0f0'}},range:[2015,2035],tickfont:{color:'#0f0'}},
+    yaxis:{title:{text:'pDOOM (0→1)',font:{color:'#0f0'}},range:[0,1],tickfont:{color:'#0f0'}},
+    margin:{l:60,r:20,b:60,t:80},font:{color:'#0f0'}}, {responsive:true});
+
+  // alignment bar – distance to doom point (2027,1)
+  let best=Infinity; for(let i=0;i<pts.x.length;i++){
+    const d=Math.hypot(pts.x[i]-2027,pts.y[i]-1);
+    if(d<best)best=d;
+  }
+  const pct=Math.max(0,Math.min(100,100*(1-best)));
+  fill.style.width=pct+'%'; fill.textContent=pct.toFixed(0)+'%';
+}
+
+/* ── Hook sliders ── */
+[b,dx,dy,n].forEach(s=>s.addEventListener('input',draw));
+draw();
+</script>
+</body>
+</html>
+

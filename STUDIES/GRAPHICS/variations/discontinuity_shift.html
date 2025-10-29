@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>P-doom Curve - Discontinuity with X-Shift</title>
+<style>
+  body {margin:0;overflow:hidden;background:#000;color:#fa0;font-family:'Courier New',monospace;}
+  #ui {position:fixed;top:10px;left:10px;background:rgba(30,15,0,0.9);padding:15px;border-radius:8px;
+       border:1px solid #fa0;box-shadow:0 0 25px rgba(255,170,0,0.4);z-index:100;}
+  label {display:block;margin:8px 0;font-size:11px;text-shadow:0 0 5px #fa0;}
+  input[type="range"] {width:180px;}
+  button {background:#a60;border:1px solid #fa0;color:#fa0;padding:5px 10px;cursor:pointer;
+          font-family:inherit;margin-top:5px;}
+  button:hover {background:#fa0;color:#000;}
+  .info {font-size:10px;color:#888;margin-top:10px;border-top:1px solid #333;padding-top:5px;}
+  canvas {position:absolute;top:0;left:0;}
+  #graph {z-index:10;pointer-events:none;}
+  #shader {z-index:1;}
+</style>
+</head>
+<body>
+
+<canvas id="shader"></canvas>
+<canvas id="graph"></canvas>
+
+<div id="ui">
+  <label>b (exponent): <input type="range" id="b" min="-5" max="5" step="0.01" value="1"><span id="bval">1.00</span></label>
+  <label>c (offset):   <input type="range" id="c" min="-5" max="5" step="0.01" value="0"><span id="cval">0.00</span></label>
+  <label>x-offset:    <input type="range" id="dx" min="-10" max="10" step="0.01" value="0"><span id="dxval">0.00</span></label>
+  <label>Discontinuity y: <input type="range" id="discY" min="0" max="1" step="0.001" value="0.5"><span id="dyval">0.50</span></label>
+  <label>X-shift amount: <input type="range" id="xshift" min="-5" max="5" step="0.1" value="2"><span id="xsval">2.0</span></label>
+  <button id="reset">Reset to constraints</button>
+  <div class="info">Curve shifts horizontally by X-shift years when crossing discontinuity y-value</div>
+</div>
+
+<script>
+/* ========== WebGL Shader Background ========== */
+const shaderCanvas = document.getElementById('shader');
+const gl = shaderCanvas.getContext('webgl');
+
+function resizeShader() {
+  shaderCanvas.width = window.innerWidth;
+  shaderCanvas.height = window.innerHeight;
+  if(gl) gl.viewport(0, 0, shaderCanvas.width, shaderCanvas.height);
+}
+window.addEventListener('resize', resizeShader);
+resizeShader();
+
+const vsSource = `
+  attribute vec2 pos;
+  void main() {
+    gl_Position = vec4(pos, 0.0, 1.0);
+  }
+`;
+
+// Fragment shader - temporal fracture theme
+const fsSource = `
+  precision highp float;
+  uniform vec2 resolution;
+  uniform float time;
+
+  float hash(vec2 p) {
+    p = fract(p * vec2(456.789, 123.456));
+    p += dot(p, p + 67.89);
+    return fract(p.x * p.y);
+  }
+
+  float noise(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    float a = hash(i);
+    float b = hash(i + vec2(1.0, 0.0));
+    float c = hash(i + vec2(0.0, 1.0));
+    float d = hash(i + vec2(1.0, 1.0));
+    return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+  }
+
+  float fbm(vec2 p) {
+    float value = 0.0;
+    float amplitude = 0.5;
+    for(int i = 0; i < 6; i++) {
+      value += amplitude * noise(p);
+      p *= 2.0;
+      amplitude *= 0.5;
+    }
+    return value;
+  }
+
+  // Fracture lines
+  float fractures(vec2 p, float t) {
+    float f = 0.0;
+
+    // Vertical fracture (discontinuity)
+    float verticalFracture = smoothstep(0.03, 0.0, abs(p.x - sin(t * 0.5) * 0.2));
+    verticalFracture *= 0.5 + 0.5 * sin(t * 8.0);
+
+    // Branching cracks
+    for(int i = 0; i < 3; i++) {
+      float fi = float(i);
+      float angle = fi * 2.0 + t * 0.3;
+      vec2 dir = vec2(cos(angle), sin(angle));
+      float crack = smoothstep(0.02, 0.0, abs(dot(p, dir) + sin(t + fi) * 0.3));
+      f += crack * 0.3;
+    }
+
+    return f + verticalFracture;
+  }
+
+  // Time distortion field
+  float timeDistortion(vec2 p, float t) {
+    // Create warped time zones
+    float warp = sin(p.x * 3.0 + t) * cos(p.y * 2.0 - t * 0.7) * 0.5;
+    float temporal = fbm(p * 2.0 + vec2(t * 0.2, -t * 0.15));
+
+    return temporal + warp;
+  }
+
+  void main() {
+    vec2 uv = gl_FragCoord.xy / resolution;
+    vec2 p = uv * 2.0 - 1.0;
+    p.x *= resolution.x / resolution.y;
+
+    float t = time * 0.4;
+
+    // Time distortion
+    float distortion = timeDistortion(p, t);
+
+    // Fracture pattern
+    float fract = fractures(p + distortion * 0.1, t);
+
+    // Organic noise
+    float organic = fbm(p * 3.0 + t * 0.1);
+
+    // Combine
+    float pattern = fract * 0.6 + organic * 0.4 + distortion * 0.2;
+
+    // Color: orange/amber (temporal anomaly)
+    vec3 baseColor = vec3(1.0, 0.4, 0.0);
+    vec3 brightColor = vec3(1.0, 0.8, 0.2);
+    vec3 darkColor = vec3(0.3, 0.1, 0.0);
+
+    vec3 color = mix(darkColor, mix(baseColor, brightColor, fract), pattern);
+
+    // Pulsing energy
+    color *= 0.7 + 0.3 * sin(t * 4.0 + pattern * 10.0);
+
+    // Temporal scan
+    float scan = sin(uv.y * 20.0 + t * 10.0) * 0.05;
+    color += scan;
+
+    // Vignette
+    float vignette = smoothstep(1.5, 0.4, length(p));
+    color *= vignette;
+
+    gl_FragColor = vec4(color, 1.0);
+  }
+`;
+
+function compileShader(source, type) {
+  const shader = gl.createShader(type);
+  gl.shaderSource(shader, source);
+  gl.compileShader(shader);
+  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+    console.error('Shader compile error:', gl.getShaderInfoLog(shader));
+    gl.deleteShader(shader);
+    return null;
+  }
+  return shader;
+}
+
+const vs = compileShader(vsSource, gl.VERTEX_SHADER);
+const fs = compileShader(fsSource, gl.FRAGMENT_SHADER);
+
+const program = gl.createProgram();
+gl.attachShader(program, vs);
+gl.attachShader(program, fs);
+gl.linkProgram(program);
+
+if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+  console.error('Program link error:', gl.getProgramInfoLog(program));
+}
+
+gl.useProgram(program);
+
+const positions = new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]);
+const buffer = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW);
+
+const posLoc = gl.getAttribLocation(program, 'pos');
+gl.enableVertexAttribArray(posLoc);
+gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+
+const resolutionLoc = gl.getUniformLocation(program, 'resolution');
+const timeLoc = gl.getUniformLocation(program, 'time');
+
+let startTime = Date.now();
+function animateShader() {
+  const time = (Date.now() - startTime) * 0.001;
+  gl.uniform2f(resolutionLoc, shaderCanvas.width, shaderCanvas.height);
+  gl.uniform1f(timeLoc, time);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  requestAnimationFrame(animateShader);
+}
+animateShader();
+
+/* ========== Graph Canvas ========== */
+const graphCanvas = document.getElementById('graph');
+const ctx = graphCanvas.getContext('2d');
+
+function resizeGraph() {
+  graphCanvas.width = window.innerWidth;
+  graphCanvas.height = window.innerHeight;
+  draw();
+}
+window.addEventListener('resize', resizeGraph);
+resizeGraph();
+
+/* ========== UI ========== */
+const sliders = {
+  b: document.getElementById('b'),
+  c: document.getElementById('c'),
+  dx: document.getElementById('dx'),
+  discY: document.getElementById('discY'),
+  xshift: document.getElementById('xshift')
+};
+
+function updateDisplays() {
+  document.getElementById('bval').textContent = parseFloat(sliders.b.value).toFixed(2);
+  document.getElementById('cval').textContent = parseFloat(sliders.c.value).toFixed(2);
+  document.getElementById('dxval').textContent = parseFloat(sliders.dx.value).toFixed(2);
+  document.getElementById('dyval').textContent = parseFloat(sliders.discY.value).toFixed(3);
+  document.getElementById('xsval').textContent = parseFloat(sliders.xshift.value).toFixed(1);
+}
+
+document.getElementById('reset').onclick = () => {
+  const dx = parseFloat(sliders.dx.value);
+  const target = 0.8;
+  let b = 1.0;
+  for(let i=0; i<20; i++) {
+    const f = Math.pow(2027+dx, b) - Math.pow(2025+dx, b) - target;
+    const df = Math.log(2027+dx)*Math.pow(2027+dx, b) - Math.log(2025+dx)*Math.pow(2025+dx, b);
+    b -= f/df;
+  }
+  const c = 1 - Math.pow(2027+dx, b);
+  sliders.b.value = b.toFixed(4);
+  sliders.c.value = c.toFixed(4);
+  updateDisplays();
+  draw();
+};
+
+/* ========== Core math with discontinuity ========== */
+function computeY(x, b, c, dx) {
+  const X = new Float64Array(1);
+  X[0] = x + dx;
+  const y = Math.pow(X[0], b) + c;
+  return y;
+}
+
+/* ========== Drawing ========== */
+function draw() {
+  const w = graphCanvas.width, h = graphCanvas.height;
+  ctx.clearRect(0, 0, w, h);
+
+  const b = parseFloat(sliders.b.value);
+  const c = parseFloat(sliders.c.value);
+  const dx = parseFloat(sliders.dx.value);
+  const discY = parseFloat(sliders.discY.value);
+  const xshift = parseFloat(sliders.xshift.value);
+
+  const years = [2020, 2030];
+  const N = 2000;
+  const step = (years[1] - years[0]) / N;
+
+  // Find where curve crosses discontinuity
+  let crossX = null;
+  for(let i = 0; i <= N; i++) {
+    const x = years[0] + i * step;
+    const y = computeY(x, b, c, dx);
+    if(Math.abs(y - discY) < 0.01) {
+      crossX = x;
+      break;
+    }
+  }
+
+  // Draw curve with discontinuity
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = '#ffaa00';
+  ctx.shadowBlur = 20;
+  ctx.shadowColor = '#ffaa00';
+
+  // Before discontinuity
+  ctx.beginPath();
+  let started = false;
+  for(let i = 0; i <= N; i++) {
+    const x = years[0] + i * step;
+    const y = computeY(x, b, c, dx);
+
+    if(y < 0 || y > 1) continue;
+    if(crossX && x > crossX) break;
+
+    const px = (x - years[0]) / (years[1] - years[0]) * w;
+    const py = h - y * h;
+
+    if(!started) {
+      ctx.moveTo(px, py);
+      started = true;
+    } else {
+      ctx.lineTo(px, py);
+    }
+  }
+  ctx.stroke();
+
+  // After discontinuity (shifted)
+  ctx.beginPath();
+  started = false;
+  for(let i = 0; i <= N; i++) {
+    const x = years[0] + i * step;
+    const y = computeY(x, b, c, dx);
+
+    if(y < 0 || y > 1) continue;
+    if(crossX && x <= crossX) continue;
+
+    // Apply horizontal shift
+    const shiftedX = x + xshift;
+    const px = (shiftedX - years[0]) / (years[1] - years[0]) * w;
+    const py = h - y * h;
+
+    if(!started) {
+      ctx.moveTo(px, py);
+      started = true;
+    } else {
+      ctx.lineTo(px, py);
+    }
+  }
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  // Draw discontinuity line
+  if(crossX) {
+    ctx.strokeStyle = '#ff000055';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([5, 5]);
+    const px = (crossX - years[0]) / (years[1] - years[0]) * w;
+    ctx.beginPath();
+    ctx.moveTo(px, 0);
+    ctx.lineTo(px, h);
+    ctx.stroke();
+
+    // Draw shifted discontinuity line
+    const px2 = (crossX + xshift - years[0]) / (years[1] - years[0]) * w;
+    ctx.beginPath();
+    ctx.moveTo(px2, 0);
+    ctx.lineTo(px2, h);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Draw horizontal discontinuity marker
+  ctx.strokeStyle = '#ff0000aa';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([3, 3]);
+  const py = h - discY * h;
+  ctx.beginPath();
+  ctx.moveTo(0, py);
+  ctx.lineTo(w, py);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Draw axes
+  ctx.strokeStyle = '#ffaa0044';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(0, h);
+  ctx.lineTo(w, h);
+  ctx.moveTo(0, 0);
+  ctx.lineTo(0, h);
+  ctx.stroke();
+
+  // Labels
+  ctx.fillStyle = '#fa0';
+  ctx.shadowBlur = 5;
+  ctx.shadowColor = '#fa0';
+  ctx.font = '14px "Courier New"';
+  ctx.fillText('2020', 10, h - 10);
+  ctx.fillText('2030', w - 50, h - 10);
+  ctx.fillText('p=0', 10, h - 30);
+  ctx.fillText('p=1', 10, 20);
+
+  // Discontinuity label
+  if(crossX) {
+    ctx.fillStyle = '#f00';
+    ctx.fillText(`Shift: ${xshift.toFixed(1)}yr`, w - 120, 30);
+  }
+  ctx.shadowBlur = 0;
+}
+
+/* ========== React to UI changes ========== */
+Object.values(sliders).forEach(s => {
+  s.addEventListener('input', () => {
+    updateDisplays();
+    draw();
+  });
+});
+updateDisplays();
+draw();
+</script>
+</body>
+</html>

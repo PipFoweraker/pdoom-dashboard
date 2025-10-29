@@ -1,0 +1,171 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>PDOOM + Forced Exponential (2027)</title>
+  <script src="https://cdn.plot.ly/plotly-2.26.1.min.js"></script>
+  <style>
+    body{
+      font-family:Arial;
+      margin:16px auto;
+      max-width:900px;
+      background:#121212;
+      color:#e0e0e0;
+    }
+    #controls{
+      display:flex;
+      gap:12px;
+      margin-bottom:12px;
+      background:#1e1e1e;
+      padding:10px;
+      border-radius:5px;
+    }
+    #plot{width:100%;height:480px}
+    input[type="range"]{accent-color:#bb86fc}
+  </style>
+</head>
+<body>
+<h2>PDOOM Projection + Forced Exponential (2027)</h2>
+
+<div id="controls">
+  <div>
+    <label>Growth Rate: <span id="rateVal">3.00</span></label>
+    <input id="rate" type="range" min="0" max="6" step="0.01" value="3.00">
+  </div>
+  <div>
+    <label>Time Shift: <span id="shiftVal">0.00</span></label>
+    <input id="shift" type="range" min="-2" max="2" step="0.01" value="0.00">
+  </div>
+  <div>
+    <label>Exp‑Shift: <span id="expShiftVal">0.00</span></label>
+    <input id="expShift" type="range" min="-30" max="30" step="0.5" value="0">
+  </div>
+</div>
+
+<div id="plot"></div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const start = new Date('2025-10-29');
+  const end   = new Date('2028-12-31');
+
+  // ---- build monthly date array ----
+  const dates = [];
+  for (let d = new Date(start); d <= end; d.setMonth(d.getMonth() + 1)) {
+    dates.push(new Date(d));
+  }
+
+  const yearsSinceStart = date =>
+    (date - start) / (1000 * 60 * 60 * 24 * 365.25);
+
+  // ---- PDOOM curve ----
+  const computePDOOM = (rate, shift) => {
+    const x = dates.map(d => d.toISOString().slice(0,10));
+    const y = dates.map(d => {
+      const t = yearsSinceStart(d) + shift;
+      const noise = Math.random() * 0.05;
+      const raw   = Math.exp(rate * t) / Math.pow(10,4);
+      return Math.min(1, Math.max(0, raw + noise));
+    });
+    return {x, y};
+  };
+
+  // ---- Forced exponential (passes through y=1 at calendar year 2027) ----
+  // Target year:
+  const targetYear = 2027;
+  // Compute the number of days from the start date to Jan 1 targetYear.
+  const targetDate = new Date(`${targetYear}-01-01`);
+  const daysToTarget = (targetDate - start) / (1000 * 60 * 60 * 24);
+
+  // The curve is y = exp( daysSinceStart - daysToTarget + expShift )
+  // At daysSinceStart = daysToTarget → y = exp(0 + expShift) = 1 when expShift = 0.
+  const computeExp = (expShift) => {
+    const x = dates.map(d => d.toISOString().slice(0,10));
+    const y = dates.map(d => {
+      const daysSinceStart = (d - start) / (1000 * 60 * 60 * 24);
+      const raw = Math.exp(daysSinceStart - daysToTarget + expShift);
+      const noise = (Math.random() - 0.5) * 0.02; // ±0.01 jitter
+      return Math.min(1, Math.max(0, raw + noise));
+    });
+    return {x, y};
+  };
+
+  // ---- Plotting ----
+  const plotEl = document.getElementById('plot');
+
+  const draw = (rate, shift, expShift) => {
+    const pd = computePDOOM(rate, shift);
+    const ex = computeExp(expShift);
+
+    Plotly.react(plotEl,
+      [
+        { // PDOOM
+          x: pd.x,
+          y: pd.y,
+          name: 'PDOOM',
+          mode: 'lines+markers',
+          marker: {size:6, color:'#bb86fc', opacity:0.7},
+          line:   {width:3, color:'#bb86fc', shape:'spline'}
+        },
+        { // Forced exponential
+          x: ex.x,
+          y: ex.y,
+          name: `eˣ (passes 2027)`,
+          mode: 'lines',
+          line: {width:2, color:'#ff9800', dash:'dot'}
+        }
+      ],
+      {
+        title: {text:'PDOOM + Forced Exponential (2027)', font:{color:'#e0e0e0'}},
+        xaxis: {title:{text:'Date',font:{color:'#e0e0e0'}}, tickangle:-45},
+        yaxis: {title:{text:'Probability',font:{color:'#e0e0e0'}}, range:[0,1]},
+        plot_bgcolor:'transparent',
+        paper_bgcolor:'transparent',
+        font:{color:'#e0e0e0'},
+        legend:{font:{color:'#e0e0e0'}}
+      }
+    );
+  };
+
+  // ---- UI handling ----
+  let rate   = parseFloat(document.getElementById('rate').value);
+  let shift  = parseFloat(document.getElementById('shift').value);
+  let expShift = parseFloat(document.getElementById('expShift').value);
+
+  const rateVal   = document.getElementById('rateVal');
+  const shiftVal  = document.getElementById('shiftVal');
+  const expShiftVal = document.getElementById('expShiftVal');
+
+  const debounce = (fn, ms) => {
+    let t;
+    return (...args) => {
+      clearTimeout(t);
+      t = setTimeout(() => fn(...args), ms);
+    };
+  };
+
+  const update = debounce(() => draw(rate, shift, expShift), 150);
+  update(); // initial draw
+
+  document.getElementById('rate').addEventListener('input', e => {
+    rate = parseFloat(e.target.value);
+    rateVal.textContent = rate.toFixed(2);
+    update();
+  });
+
+  document.getElementById('shift').addEventListener('input', e => {
+    shift = parseFloat(e.target.value);
+    shiftVal.textContent = shift.toFixed(2);
+    update();
+  });
+
+  document.getElementById('expShift').addEventListener('input', e => {
+    expShift = parseFloat(e.target.value);
+    expShiftVal.textContent = expShift.toFixed(2);
+    update();
+  });
+});
+</script>
+</body>
+</html>
+

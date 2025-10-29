@@ -1,0 +1,253 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>pDOOM — Editable Parameters</title>
+  <script src="https://cdn.plot.ly/plotly-2.24.0.min.js"></script>
+  <style>
+    html,body{height:100%;margin:0;background:#000;color:#e6fff2;font-family:Inter,Arial,Helvetica,sans-serif}
+    #wrap{position:fixed;inset:0;display:flex;flex-direction:column}
+    header{height:84px;display:flex;align-items:center;padding:14px 22px;border-bottom:1px solid rgba(255,255,255,0.035)}
+    .title{font-size:48px;font-weight:900;color:#ff2b2b;text-shadow:0 0 18px rgba(255,43,43,0.12);margin-right:18px}
+    .subtitle{color:#7fff9e;font-size:14px;letter-spacing:1px}
+    #plot{flex:1;min-height:0}
+    #controls{height:150px;background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01));display:flex;align-items:center;gap:18px;padding:12px 22px;border-top:1px solid rgba(255,255,255,0.03);flex-wrap:wrap}
+    .ctrl{display:flex;flex-direction:column;color:#bfffe6;font-size:13px;min-width:220px}
+    .label{font-size:12px;color:#ffd3d3;margin-bottom:6px;font-weight:700}
+    .row{display:flex;gap:10px;align-items:center}
+    input[type="range"]{width:180px}
+    input[type="number"]{width:88px;padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.06);background:#071018;color:#eafff2}
+    .btn{padding:8px 12px;border-radius:6px;background:#ff2b2b;color:#fff;border:none;cursor:pointer}
+    .note{color:#9fbfe8;font-size:13px;margin-left:12px}
+  </style>
+</head>
+<body>
+  <div id="wrap">
+    <header>
+      <div class="title">pDOOM</div>
+      <div class="subtitle">Editable: y = x^b + c  •  SHIFT moves top half (>0.5)</div>
+    </header>
+
+    <div id="plot"></div>
+
+    <div id="controls">
+      <div class="ctrl">
+        <div class="label">Exponent (b)</div>
+        <div class="row">
+          <input id="b_num" type="number" step="0.001" value="1.050">
+          <input id="b_range" type="range" min="0.01" max="3.0" step="0.001" value="1.05">
+        </div>
+      </div>
+
+      <div class="ctrl">
+        <div class="label">Static offset (c)</div>
+        <div class="row">
+          <input id="c_num" type="number" step="0.0001" value="-0.999000">
+          <input id="c_range" type="range" min="-2.0" max="2.0" step="0.0005" value="-0.999">
+        </div>
+      </div>
+
+      <div class="ctrl">
+        <div class="label">SHIFT (years for top half)</div>
+        <div class="row">
+          <input id="s_num" type="number" step="0.01" value="0.00">
+          <input id="s_range" type="range" min="-5" max="5" step="0.01" value="0.00">
+        </div>
+      </div>
+
+      <div class="ctrl">
+        <div class="label">Fuzzy static amplitude</div>
+        <div class="row">
+          <input id="f_num" type="number" step="0.001" value="0.012">
+          <input id="f_range" type="range" min="0" max="0.1" step="0.001" value="0.012">
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:6px;min-width:260px">
+        <div style="color:#9fbfe8">X: Year (2020 → 2030)</div>
+        <div style="color:#9fbfe8">Y: Probability (0 → 1)</div>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button id="reset" class="btn">Reset fit</button>
+          <button id="snap27" class="btn" style="background:#00c878">Snap so cross @27</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  // domain forced 2020..2030
+  const x0 = 2020, x1 = 2030;
+  const N = 600;
+  function makeX(n=N){
+    const out = new Array(n);
+    for(let i=0;i<n;i++) out[i] = x0 + (x1 - x0) * (i/(n-1));
+    return out;
+  }
+  const xs = makeX();
+
+  // Solver to fit b and c to targets:
+  // y(27)=1, y(26)=0.2, y(25)=0.05  using y = x^b + c
+  // Solve b from (27^b - 26^b) = 0.8 and (26^b - 25^b) = 0.15; we solve using binary search for b
+  function solve_b0(){
+    const f = (b) => Math.pow(27,b) - Math.pow(26,b) - 0.8;
+    let a=0.01, c=5, fa=f(a), fc=f(c);
+    for(let i=0;i<80;i++){
+      const m=(a+c)/2; const fm=f(m);
+      if (Math.abs(fm) < 1e-12) return m;
+      if (fa*fm<0){ c=m; fc=fm } else { a=m; fa=fm }
+    }
+    return (a+c)/2;
+  }
+  const b_fit = solve_b0();
+  const c_fit = 1 - Math.pow(27, b_fit);
+
+  // compute function with SHIFT and fuzzy static
+  function computeYs(xs, b, c, shift, fuzzAmp){
+    const raw = new Array(xs.length);
+    for(let i=0;i<xs.length;i++){
+      let x = xs[i];
+      // compute shifted version
+      const y_shift = Math.pow(x + shift, b) + c;
+      const y_base  = Math.pow(x, b) + c;
+      // choose top-half logic: use shifted if y_shift > 0.5 else base
+      let y = (y_shift > 0.5) ? y_shift : y_base;
+      // add fuzzy static noise
+      const noise = (Math.random()*2 - 1) * fuzzAmp * (0.6 + 0.4*Math.random());
+      y += noise;
+      raw[i] = y;
+    }
+    const clamped = raw.map(v => Math.max(0, Math.min(1, v)));
+    return {raw, clamped};
+  }
+
+  // Plotly setup
+  const initial = computeYs(xs, b_fit, c_fit, 0, 0.012);
+  const trace = {
+    x: xs,
+    y: initial.clamped,
+    mode: 'lines',
+    type: 'scattergl',
+    line: {color:'#00ff66',width:3},
+    fill:'tozeroy',
+    fillcolor:'rgba(0,255,102,0.06)',
+    hoverinfo:'text',
+    text: initial.raw.map((v,i)=>`Year ${xs[i].toFixed(2)}<br>raw=${v.toFixed(6)}`)
+  };
+
+  const layout = {
+    paper_bgcolor:'#000', plot_bgcolor:'#000',
+    margin:{l:72,r:20,t:18,b:72},
+    xaxis:{
+      type:'linear', range:[x0,x1], tickmode:'linear', dtick:1, tick0:2020,
+      tickfont:{color:'#ff7b7b'}, title:{text:'Year',font:{color:'#ff7b7b'}},
+      showgrid:true, gridcolor:'rgba(255,255,255,0.04)'
+    },
+    yaxis:{
+      range:[0,1], tickfont:{color:'#9fffcf'}, title:{text:'Probability of doom',font:{color:'#9fffcf'}},
+      showgrid:true, gridcolor:'rgba(255,255,255,0.04)'
+    },
+    font:{color:'#e6fff2'},
+    showlegend:false,
+    shapes:[
+      {type:'line', x0:x0, x1:x1, xref:'x', y0:0.5, y1:0.5, yref:'y', line:{color:'#ffaa00',width:2,dash:'dot'}},
+      {type:'line', x0:x0, x1:x1, xref:'x', y0:1, y1:1, yref:'y', line:{color:'#ff3b3b',width:2,dash:'dash'}}
+    ]
+  };
+
+  Plotly.newPlot('plot',[trace],layout,{responsive:true});
+
+  // DOM elements
+  const b_num = document.getElementById('b_num'), b_range = document.getElementById('b_range');
+  const c_num = document.getElementById('c_num'), c_range = document.getElementById('c_range');
+  const s_num = document.getElementById('s_num'), s_range = document.getElementById('s_range');
+  const f_num = document.getElementById('f_num'), f_range = document.getElementById('f_range');
+  const resetBtn = document.getElementById('reset'), snapBtn = document.getElementById('snap27');
+
+  // initialize inputs to fitted values
+  b_num.value = b_fit.toFixed(6); b_range.value = b_fit;
+  c_num.value = c_fit.toFixed(6); c_range.value = c_fit;
+  s_num.value = "0.00"; s_range.value = 0;
+  f_num.value = "0.012"; f_range.value = 0.012;
+
+  function updateFromInputs(){
+    // read and sanitize
+    let b = parseFloat(b_num.value); if (isNaN(b)) b = parseFloat(b_range.value);
+    let c = parseFloat(c_num.value); if (isNaN(c)) c = parseFloat(c_range.value);
+    let s = parseFloat(s_num.value); if (isNaN(s)) s = parseFloat(s_range.value);
+    let f = parseFloat(f_num.value); if (isNaN(f)) f = parseFloat(f_range.value);
+    // clamp ranges to safe values
+    b = Math.max(0.01, Math.min(5, b));
+    c = Math.max(-5, Math.min(5, c));
+    s = Math.max(-10, Math.min(10, s));
+    f = Math.max(0, Math.min(1, f));
+    // sync inputs
+    b_num.value = b.toFixed(6); b_range.value = b;
+    c_num.value = c.toFixed(6); c_range.value = c;
+    s_num.value = s.toFixed(2); s_range.value = s;
+    f_num.value = f.toFixed(6); f_range.value = f;
+    // compute and update plot
+    const {raw, clamped} = computeYs(xs, b, c, s, f);
+    const txt = raw.map((v,i)=>`Year ${xs[i].toFixed(2)}<br>raw=${v.toFixed(6)}`);
+    Plotly.restyle('plot',{ y:[clamped], text:[txt] }, [0]);
+    // update shapes/annotations for crossing at y=1 if present
+    let crossX = null;
+    for(let i=0;i<raw.length;i++){ if (raw[i] >= 1){ crossX = xs[i]; break; } }
+    const shapes = [
+      {type:'line', x0:x0, x1:x1, xref:'x', y0:0.5, y1:0.5, yref:'y', line:{color:'#ffaa00',width:2,dash:'dot'}},
+      {type:'line', x0:x0, x1:x1, xref:'x', y0:1, y1:1, yref:'y', line:{color:'#ff3b3b',width:2,dash:'dash'}}
+    ];
+    const ann = [];
+    if (crossX !== null){
+      shapes.push({type:'line', x0:crossX, x1:crossX, xref:'x', y0:0, y1:1, yref:'y', line:{color:'#ff3b3b',width:1,dash:'dot'}});
+      ann.push({x:crossX, y:1, xref:'x', yref:'y', text:'cross @' + crossX.toFixed(2), showarrow:true, arrowcolor:'#ff3b3b', font:{color:'#ff3b3b'}});
+    }
+    Plotly.relayout('plot',{shapes:shapes, annotations:ann});
+  }
+
+  // wire up events: sync number <-> range and update plot
+  function wirePair(numEl, rangeEl){
+    numEl.addEventListener('change', updateFromInputs);
+    numEl.addEventListener('input', updateFromInputs);
+    rangeEl.addEventListener('input', () => {
+      numEl.value = Number(rangeEl.value).toFixed(numEl===b_num?6: numEl===c_num?6: numEl===f_num?6:2);
+      updateFromInputs();
+    });
+  }
+  wirePair(b_num, b_range);
+  wirePair(c_num, c_range);
+  wirePair(s_num, s_range);
+  wirePair(f_num, f_range);
+
+  // Reset to fitted values
+  resetBtn.addEventListener('click', () => {
+    b_num.value = b_fit.toFixed(6); b_range.value = b_fit;
+    c_num.value = c_fit.toFixed(6); c_range.value = c_fit;
+    s_num.value = "0.00"; s_range.value = 0;
+    f_num.value = "0.012"; f_range.value = 0.012;
+    updateFromInputs();
+  });
+
+  // Snap so curve crosses exactly at x=27: solve c = 1 - 27^b
+  snapBtn.addEventListener('click', () => {
+    const b = parseFloat(b_num.value) || b_fit;
+    const c = 1 - Math.pow(27, b);
+    c_num.value = c.toFixed(6); c_range.value = c;
+    updateFromInputs();
+  });
+
+  // Expose receiveTelemetry for Godot (expects { t:[2020..2030], v:[0..1] })
+  window.receiveTelemetry = (jsonStr) => {
+    try {
+      const p = JSON.parse(jsonStr);
+      if (p.t && p.v && p.t.length && p.v.length){
+        Plotly.extendTraces('plot', { x:[p.t], y:[p.v] }, [0], 1000);
+      }
+    } catch(e){ console.error('receiveTelemetry parse error', e); }
+  };
+
+  // initial render
+  updateFromInputs();
+  </script>
+</body>
+</html>
+
