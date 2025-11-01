@@ -1,0 +1,65 @@
+date,event,category,organization,description,impact_level,compute_flops,source_url,notes
+2012-09-30,AlexNet,model,Google/Toronto,ImageNet breakthrough with deep CNNs,high,1e16,https://papers.nips.cc/paper/2012/hash/c399862d3b9d6b76c8436e924a68c45b-Abstract.html,Catalyzed deep learning revolution
+2014-06-10,GAN,research,Montreal,Generative Adversarial Networks introduced,high,,https://arxiv.org/abs/1406.2661,New paradigm for generation
+2014-09-10,Sequence-to-Sequence,research,Google,Neural machine translation breakthrough,medium,,https://arxiv.org/abs/1409.3215,Foundation for transformers
+2015-12-11,AlphaGo,milestone,DeepMind,Defeats European Go champion,critical,1e18,https://www.nature.com/articles/nature16961,First major game AI breakthrough
+2016-03-15,AlphaGo Lee,milestone,DeepMind,Defeats world champion Lee Sedol 4-1,critical,1e18,https://www.deepmind.com/research/highlighted-research/alphago,Mainstream AI awareness moment
+2017-06-12,Attention Is All You Need,research,Google,Transformer architecture introduced,critical,,https://arxiv.org/abs/1706.03762,Foundation of modern LLMs
+2017-12-05,AlphaZero,milestone,DeepMind,Masters chess/shogi/Go from scratch,high,5e18,https://www.science.org/doi/10.1126/science.aar6404,Generalized game learning
+2018-06-11,GPT-1,model,OpenAI,117M parameters generative pretraining,medium,1e18,https://openai.com/research/language-unsupervised,Start of GPT series
+2018-10-11,BERT,model,Google,Bidirectional transformer pretraining,high,1e18,https://arxiv.org/abs/1810.04805,NLP benchmark dominance
+2019-02-14,GPT-2,model,OpenAI,1.5B parameters - initially not released,high,5e19,https://openai.com/research/better-language-models,Concerns about misuse
+2019-07-23,RoBERTa,model,Facebook,Robustly optimized BERT,medium,5e19,https://arxiv.org/abs/1907.11692,BERT improvements
+2019-09-17,Megatron-LM,model,NVIDIA,8.3B parameter model,medium,1e20,https://arxiv.org/abs/1909.08053,Large-scale training techniques
+2020-01-23,GShard,research,Google,Trillion parameter models via sharding,high,,https://arxiv.org/abs/2006.16668,Scaling to trillions
+2020-05-28,GPT-3,model,OpenAI,175B parameters - few-shot learning,critical,3.14e23,https://arxiv.org/abs/2005.14165,Emergent capabilities
+2020-12-30,AlphaFold 2,milestone,DeepMind,Solves protein folding problem,critical,1e20,https://www.nature.com/articles/s41586-021-03819-2,Major scientific breakthrough
+2021-01-05,DALL-E,model,OpenAI,Text-to-image generation,high,1e21,https://openai.com/research/dall-e,Multimodal generation
+2021-01-12,CLIP,model,OpenAI,Contrastive language-image pretraining,high,1e21,https://arxiv.org/abs/2103.00020,Vision-language foundation
+2021-06-09,Codex,model,OpenAI,Code generation model,high,1e21,https://arxiv.com/abs/2107.03374,Powers GitHub Copilot
+2021-08-10,Chinchilla,research,DeepMind,Scaling laws refined - compute optimal,high,5e23,https://arxiv.org/abs/2203.15556,Training efficiency insights
+2021-12-08,Gato,model,DeepMind,Generalist multi-task agent,high,1e21,https://arxiv.org/abs/2205.06175,Towards AGI architecture
+2022-04-06,PaLM,model,Google,540B parameters with chain-of-thought,critical,2.5e24,https://arxiv.org/abs/2204.02311,Reasoning breakthrough
+2022-04-12,Chinchilla Paper,research,DeepMind,Data-model size scaling laws,high,,https://arxiv.org/abs/2203.15556,Changed training paradigms
+2022-05-11,OPT-175B,model,Meta,Open release of 175B model,medium,3e23,https://arxiv.org/abs/2205.01068,Open alternatives to GPT-3
+2022-07-13,Minerva,model,Google,Mathematical reasoning model,high,1e23,https://arxiv.org/abs/2206.14858,Quantitative reasoning
+2022-08-24,Stable Diffusion,model,Stability AI,Open source text-to-image,high,1e20,https://stability.ai/stable-diffusion,Democratized AI art
+2022-11-30,ChatGPT,product,OpenAI,RLHF-tuned conversational AI,critical,1e22,https://openai.com/blog/chatgpt,Mainstream adoption explosion
+2023-02-06,LLaMA,model,Meta,Open weights efficient models,high,2e23,https://arxiv.org/abs/2302.13971,Open model ecosystem
+2023-02-07,Bing Chat,product,Microsoft,ChatGPT integrated into search,high,,https://blogs.microsoft.com/blog/2023/02/07/reinventing-search-with-a-new-ai-powered-microsoft-bing-and-edge-your-copilot-for-the-web/,Search integration race
+2023-03-14,GPT-4,model,OpenAI,Multimodal model with strong reasoning,critical,2e25,https://arxiv.org/abs/2303.08774,Significant capability jump
+2023-03-15,Claude,product,Anthropic,Constitutional AI assistant,high,1e23,https://www.anthropic.com/index/introducing-claude,Safety-focused alternative
+2023-03-21,GitHub Copilot X,product,GitHub/OpenAI,GPT-4 powered code assistant,medium,,https://github.blog/2023-03-22-github-copilot-x-the-ai-powered-developer-experience/,Developer productivity tool
+2023-03-22,Bard,product,Google,LaMDA-based conversational AI,medium,,https://blog.google/technology/ai/bard-google-ai-search-updates/,Google's ChatGPT response
+2023-04-18,AutoGPT,research,Community,Autonomous AI agent framework,medium,,https://github.com/Significant-Gravitas/AutoGPT,Agentic AI trend
+2023-05-10,PaLM 2,model,Google,Improved multilingual reasoning,high,3e24,https://ai.google/discover/palm2/,Powers Bard/Gemini
+2023-05-16,GPT-4 API,product,OpenAI,Public API access to GPT-4,medium,,https://openai.com/blog/gpt-4-api-general-availability,Widespread integration
+2023-07-18,LLaMA 2,model,Meta,Open commercial license models,high,3e23,https://arxiv.org/abs/2307.09288,Commercial open models
+2023-07-20,Claude 2,product,Anthropic,100K context window,high,2e23,https://www.anthropic.com/index/claude-2,Long context breakthrough
+2023-08-03,Replit Ghostwriter,product,Replit,Code generation in IDE,low,,https://replit.com/site/ghostwriter,Developer tooling
+2023-09-20,DALL-E 3,model,OpenAI,Improved image generation,high,5e21,https://openai.com/dall-e-3,Quality improvements
+2023-09-25,Mistral 7B,model,Mistral AI,Efficient open model,medium,1e22,https://mistral.ai/news/announcing-mistral-7b/,European AI competition
+2023-10-05,Code Llama,model,Meta,Specialized code generation,medium,2e23,https://arxiv.org/abs/2308.12950,Open code models
+2023-11-06,GPT-4 Turbo,model,OpenAI,128K context with lower cost,high,3e25,https://openai.com/blog/new-models-and-developer-products-announced-at-devday,Context length race
+2023-11-13,Inflection-2,model,Inflection AI,Competitive with GPT-4,high,5e24,https://inflection.ai/inflection-2,Startup competition
+2023-12-06,Gemini,model,Google,Multimodal competitive with GPT-4,critical,1e26,https://arxiv.org/abs/2312.11805,Google's flagship response
+2023-12-08,Mixtral 8x7B,model,Mistral AI,Mixture of Experts open model,high,5e23,https://mistral.ai/news/mixtral-of-experts/,MoE architecture open
+2024-01-10,AlphaGeometry,research,DeepMind,IMO-level geometry solving,high,1e21,https://www.nature.com/articles/s41586-023-06924-6,Mathematical reasoning
+2024-01-25,LLaMA Pro,model,Meta,Extended knowledge models,medium,5e23,https://arxiv.org/abs/2401.02415,Continual learning
+2024-02-15,Gemini 1.5,model,Google,1M token context window,critical,5e25,https://blog.google/technology/ai/google-gemini-next-generation-model-february-2024/,Extreme context length
+2024-02-15,Sora,model,OpenAI,Text-to-video generation,critical,1e24,https://openai.com/sora,Video generation leap
+2024-02-16,Claude 3,product,Anthropic,Opus/Sonnet/Haiku model family,critical,3e25,https://www.anthropic.com/news/claude-3-family,Multimodal competition
+2024-03-04,Grok-1,model,xAI,314B open weights model,medium,8e24,https://x.ai/blog/grok-os,Musk's AI entry
+2024-04-09,Llama 3,model,Meta,8B/70B efficient models,high,7e24,https://ai.meta.com/blog/meta-llama-3/,Strong open models
+2024-04-17,Phi-3,model,Microsoft,Small language models (3.8B),medium,5e21,https://arxiv.org/abs/2404.14219,Efficient small models
+2024-05-13,GPT-4o,model,OpenAI,Omni model - fast multimodal,critical,5e25,https://openai.com/index/hello-gpt-4o/,Real-time multimodal
+2024-05-14,Ilya Sutskever leaves OpenAI,milestone,OpenAI,Chief Scientist departure,high,,,Safety concerns surface
+2024-06-20,Claude 3.5 Sonnet,product,Anthropic,Outperforms GPT-4o on benchmarks,critical,4e25,https://www.anthropic.com/news/claude-3-5-sonnet,New SOTA
+2024-07-18,Llama 3.1,model,Meta,405B flagship open model,critical,4e25,https://ai.meta.com/blog/meta-llama-3-1/,Largest open model
+2024-08-13,Gemini 1.5 Pro,model,Google,2M token context in preview,high,8e25,https://blog.google/technology/ai/google-gemini-ai-update-august-2024/,Context records
+2024-09-12,o1-preview,model,OpenAI,Chain-of-thought reasoning model,critical,1e26,https://openai.com/o1/,Reasoning breakthrough
+2024-09-24,Llama 3.2,model,Meta,Vision models 11B/90B,high,6e25,https://ai.meta.com/blog/llama-3-2-connect-2024-vision-edge-mobile-devices/,Multimodal open
+2024-10-03,Reflection 70B,model,HyperWrite,Self-correcting reasoning,medium,1e25,https://www.reflect.ai/,Agentic improvements
+2024-10-22,Claude 3.5 Sonnet Updated,product,Anthropic,Computer use capability,critical,5e25,https://www.anthropic.com/news/3-5-models-and-computer-use,Agentic interaction
+2024-10-31,Qwen 2.5,model,Alibaba,72B multilingual model,medium,5e25,https://qwenlm.github.io/blog/qwen2.5/,Chinese AI progress
+2024-11-01,Frontier Model Risk,policy,Multiple,AI safety discussions intensify,high,,,Governance debates

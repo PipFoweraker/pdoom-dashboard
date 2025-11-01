@@ -1,0 +1,21 @@
+date,model,event_type,description,impact_level
+2020-06-11,GPT-3,release,OpenAI releases GPT-3 with 175B parameters,high
+2022-11-30,ChatGPT,release,ChatGPT launches and reaches 1M users in 5 days,high
+2023-03-14,GPT-4,release,GPT-4 released with multimodal capabilities,high
+2023-05-16,GPT-4,update,GPT-4 API made available to developers,medium
+2023-11-06,GPT-4 Turbo,release,GPT-4 Turbo announced with 128K context window,high
+2024-02-15,Sora,release,OpenAI unveils Sora video generation model,high
+2024-04-09,GPT-4,update,GPT-4 performance improvements announced,medium
+2024-05-13,o1,release,OpenAI releases o1 reasoning model series,high
+2024-08-16,GPT-5,release,GPT-5 released with 5?10?? FLOPS training compute,critical
+2024-09-03,GPT-5,update,GPT-5 achieves superhuman performance on reasoning benchmarks,high
+2025-01-14,GPT-5,update,GPT-5 API pricing reduced by 50%,medium
+2025-02-28,GPT-5,update,GPT-5 integrated into major enterprise platforms,medium
+2025-03-15,GPT-6,announcement,OpenAI announces GPT-6 training beginning,high
+2025-04-22,GPT-5,safety,OpenAI publishes GPT-5 safety evaluation report,medium
+2025-05-08,GPT-6,update,GPT-6 training reaches 10% completion,medium
+2025-06-18,GPT-5,research,GPT-5 demonstrates autonomous research capabilities,high
+2025-07-03,GPT-6,update,GPT-6 training compute surpasses GPT-5 by 2?,high
+2025-08-11,GPT-6,release,GPT-6 released with 10?10?? FLOPS,critical
+2025-09-05,GPT-6,update,GPT-6 shows emergent scientific discovery abilities,high
+2025-10-01,GPT-6,research,GPT-6 solves previously unsolved mathematical problems,high

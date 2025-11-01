@@ -1,0 +1,11 @@
+Year,Amount_USD,Funder_Type,Major_Events,Cumulative
+2015,8000000,Philanthropic,"MIRI early funding, FLI grants",8000000
+2016,12000000,Philanthropic,"Open Philanthropy increases AI safety focus",20000000
+2017,18000000,Philanthropic,"AI safety ecosystem growth, more orgs",38000000
+2018,35000000,Mixed,"CHAI expansion, SFF begins, academic grants",73000000
+2019,55000000,Mixed,"Professionalization of safety research",128000000
+2020,85000000,Mixed,"GPT-3 release increases urgency, new donors",213000000
+2021,150000000,Mixed,"FTX Future Fund launches, major expansion",363000000
+2022,280000000,Mixed,"Peak funding: FTX active + Open Phil + SFF + govt",643000000
+2023,120000000,Mixed,"Post-FTX collapse, diversification, stabilization",763000000
+2024,140000000,Mixed,"Recovery, government interest (UK, EU, US)",903000000
